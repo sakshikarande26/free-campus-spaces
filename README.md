@@ -2,7 +2,7 @@
 
 CS 520 | Spring 2026 | Team 06 | University of Massachusetts Amherst
 
-We didn't become the #1 dining campus in the nation by accident. Spaces brings that same energy to study infrastructure — making UMass not just where students eat best, but where they study best too.
+We didn't become the #1 dining campus in the nation by accident. Spaces brings that same energy to study infrastructure by making UMass not just where students eat best, but where they study best too.
 
 ---
 
