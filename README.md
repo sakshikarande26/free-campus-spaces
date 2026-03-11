@@ -25,7 +25,7 @@ Spaces is **purely informational** — it does not reserve or restrict access to
 | Prasi Shahi | [@prasishahi](https://github.com/prasishahi) |
 | Ahaana Chabba | [@achabba](https://github.com/achabba) |
 
-**GitHub Repo:** [Campus-FreeSpace-Map](https://github.com/sakshikarande26/Campus-FreeSpace-Map.git)
+**GitHub Repo:** [Spaces]([https://github.com/sakshikarande26/Campus-FreeSpace-Map.git](https://github.com/sakshikarande26/Spaces.git))
 
 ---
 
