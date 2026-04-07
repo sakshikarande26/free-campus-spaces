@@ -1,0 +1,19 @@
+{
+  "name": "spaces",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "simulator"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:admin": "npm run dev --workspace=apps/admin",
+    "dev:widget": "npm run dev --workspace=apps/widget",
+    "dev:simulator": "npm run dev --workspace=simulator",
+    "dev": "concurrently npm:dev:*"
+  },
+  "devDependencies": {
+    "concurrently": "latest"
+  }
+}

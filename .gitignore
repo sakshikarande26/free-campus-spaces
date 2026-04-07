@@ -75,3 +75,13 @@ Desktop.ini
 # ========================
 *.pem
 .yarn-integrity
+
+# ========================
+# Monorepo / Workspaces
+# ========================
+**/node_modules
+.env.*
+!.env.example
+dist/
+build/
+.cursor/
