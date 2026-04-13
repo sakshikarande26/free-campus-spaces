@@ -1,1 +1,0 @@
--- Sprint 1: Defines the PostgreSQL schema for tenants, users, spaces, and occupancy events.
