@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Spaces — UMass Amherst Study Space Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js" crossorigin></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+body { font-family: 'DM Sans', sans-serif; color: #1a1714; background: #ffffff; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #e8e3db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #d0cbc2; }
+::placeholder { color: rgba(255,255,255,0.5); }
+input:focus { outline: none; }
+button { font-family: 'DM Sans', sans-serif; }
+:root {
+  --primary: #881c1c; --primary-dark: #6b1515; --primary-light: #fdf4f4; --primary-mid: #f5d0d0;
+  --green-dark: #27500A; --green-mid: #3B6D11; --green-light: #EAF3DE; --green-border: #C0DD97;
+  --amber-dark: #633806; --amber-mid: #854F0B; --amber-light: #FAEEDA; --amber-border: #FAC775;
+  --text: #1a1714; --text-mid: #5c5752; --text-muted: #9c9790;
+  --bg: #ffffff; --surface: #faf8f4; --surface-2: #f5f2ed; --border: #e8e3db; --border-light: #f0ece5;
+  --radius: 10px; --radius-card: 14px; --radius-pill: 20px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.06);
+}
+@keyframes pulseRing {
+  0% { r: 22; opacity: 0.6; }
+  100% { r: 34; opacity: 0; }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-10px) scale(0.95); }
+}
+.card-hover { transition: all 0.2s ease; }
+.card-hover:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn-hover { transition: all 0.15s ease; }
+.btn-hover:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.btn-hover:active { transform: translateY(0); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-type="module">
+const { useState, useMemo, useCallback, useRef, useEffect } = React;
+const { motion, AnimatePresence } = window["framer-motion"] || { motion: { div: 'div' }, AnimatePresence: ({children}) => children };
+const MDiv = motion.div || 'div';
+
+/* ═══════════════ DATA ═══════════════ */
+const initialSpaces = [
+  { id:0, name:"W.E.B. Du Bois Library", loc:"Floor 3 · Quiet reading room",
+    type:"free", noise:"quiet", occ:0.18, cap:120, hours:"2:00 am",
+    amenities:["outlets","whiteboard","printer"], mapX:320, mapY:200 },
+  { id:1, name:"Design Building Lounge", loc:"Floor 1 · Open studio area",
+    type:"free", noise:"collab", occ:0.55, cap:60, hours:"10:00 pm",
+    amenities:["outlets","whiteboard"], mapX:580, mapY:150 },
+  { id:2, name:"Lederle Study Room 8A", loc:"Floor 8 · Room 8A",
+    type:"reservable", noise:"quiet", occ:0, cap:8, hours:"9:00 pm",
+    amenities:["whiteboard","outlets"],
+    slots:["1:00 pm","1:30 pm","2:00 pm","2:30 pm","3:00 pm","3:30 pm"],
+    takenSlots:[1,3], mapX:190, mapY:340 },
+  { id:3, name:"ISB Study Atrium", loc:"Floor 2 · Open atrium",
+    type:"free", noise:"quiet", occ:0.24, cap:80, hours:"12:00 am",
+    amenities:["outlets","printer"], mapX:490, mapY:350 },
+  { id:4, name:"Eng. Lab Lounge", loc:"Floor 1 · Collaboration room",
+    type:"free", noise:"collab", occ:0.63, cap:30, hours:"8:00 pm",
+    amenities:["whiteboard","outlets"], mapX:720, mapY:260 },
+  { id:5, name:"Student Union Room 163", loc:"Lower level · Room 163",
+    type:"reservable", noise:"collab", occ:0, cap:12, hours:"11:00 pm",
+    amenities:["whiteboard","outlets","printer"],
+    slots:["1:00 pm","1:30 pm","2:00 pm","2:30 pm","3:00 pm"],
+    takenSlots:[0,2,4], mapX:660, mapY:410 },
+];
+
+/* ═══════════════ HELPERS ═══════════════ */
+function occColor(occ) {
+  if (occ < 0.4) return { bg:'var(--green-light)', text:'var(--green-dark)', border:'var(--green-border)', ring:'#3B6D11' };
+  if (occ < 0.7) return { bg:'var(--amber-light)', text:'var(--amber-dark)', border:'var(--amber-border)', ring:'#854F0B' };
+  return { bg:'#fde8e8', text:'#881c1c', border:'#f5a0a0', ring:'#881c1c' };
+}
+function occLabel(occ) { return occ < 0.4 ? 'Low' : occ < 0.7 ? 'Moderate' : 'Busy'; }
+function pct(occ) { return Math.round(occ * 100); }
+
+/* ═══════════════ SVG ICONS ═══════════════ */
+const Icons = {
+  search: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  heart: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill={props.filled ? props.color||'var(--primary)' : 'none'} stroke={props.color||'var(--primary)'} strokeWidth="2" strokeLinecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
+  map: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2" strokeLinecap="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>,
+  bookmark: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill={props.filled ? props.color||'currentColor' : 'none'} stroke={props.color||'currentColor'} strokeWidth="2" strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
+  calendar: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  plus: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  minus: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  maximize: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2" strokeLinecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>,
+  clock: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  users: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  zap: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill={props.color||'currentColor'} stroke="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+  check: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  x: (props) => <svg width={props.size||16} height={props.size||16} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  outlet: (props) => <svg width={props.size||14} height={props.size||14} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="11" r="1.2" fill={props.color||'currentColor'}/><circle cx="15" cy="11" r="1.2" fill={props.color||'currentColor'}/><path d="M10 15h4" strokeLinecap="round"/></svg>,
+  whiteboard: (props) => <svg width={props.size||14} height={props.size||14} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
+  printer: (props) => <svg width={props.size||14} height={props.size||14} viewBox="0 0 24 24" fill="none" stroke={props.color||'currentColor'} strokeWidth="2" strokeLinecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
+};
+const amenityIcon = (a, color) => {
+  if (a === 'outlets') return <Icons.outlet color={color} />;
+  if (a === 'whiteboard') return <Icons.whiteboard color={color} />;
+  if (a === 'printer') return <Icons.printer color={color} />;
+  return null;
+};
+
+/* ═══════════════ TOAST SYSTEM ═══════════════ */
+function ToastContainer({ toasts }) {
+  return (
+    <div style={{ position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)', zIndex:1000, display:'flex', flexDirection:'column', gap:8, alignItems:'center', pointerEvents:'none' }}>
+      <AnimatePresence>
+        {toasts.map(t => (
+          <MDiv key={t.id} initial={{opacity:0,y:20,scale:0.95}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:-10,scale:0.95}} transition={{duration:0.25}}>
+            <div style={{
+              background: t.type==='success' ? 'var(--green-dark)' : t.type==='info' ? 'var(--primary)' : 'var(--amber-dark)',
+              color:'#fff', padding:'10px 20px', borderRadius:'var(--radius-pill)', fontSize:13, fontWeight:500,
+              boxShadow:'var(--shadow-lg)', display:'flex', alignItems:'center', gap:8, whiteSpace:'nowrap'
+            }}>
+              {t.type==='success' && <Icons.check color="#fff" size={14}/>}
+              {t.type==='info' && <Icons.zap color="#fff" size={14}/>}
+              {t.msg}
+            </div>
+          </MDiv>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ═══════════════ UMass LOGO ═══════════════ */
+function UMassLogo() {
+  return (
+    <svg width="34" height="38" viewBox="0 0 36 40" fill="none">
+      <path d="M18 2 L34 10 L34 30 L18 38 L2 30 L2 10 Z" stroke="white" strokeWidth="1.8" fill="rgba(255,255,255,0.08)"/>
+      <text x="18" y="19" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="DM Sans">UM</text>
+      <text x="18" y="30" textAnchor="middle" fill="rgba(255,255,255,0.65)" fontSize="5" fontWeight="600" fontFamily="DM Sans" letterSpacing="1.5">AMHERST</text>
+    </svg>
+  );
+}
+
+/* ═══════════════ TOPBAR ═══════════════ */
+function Topbar({ activeNav, setActiveNav, search, setSearch, bookingCount }) {
+  const navItems = [
+    { key:'Map', icon: Icons.map, label:'Map' },
+    { key:'Favorites', icon: Icons.heart, label:'Favorites' },
+    { key:'My Bookings', icon: Icons.calendar, label:'My Bookings' },
+  ];
+  return (
+    <header style={{
+      height:60, background:'var(--primary)', display:'flex', alignItems:'center',
+      padding:'0 16px', gap:12, flexShrink:0, zIndex:100,
+      boxShadow:'0 2px 8px rgba(0,0,0,0.15)'
+    }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+        <UMassLogo/>
+        <div style={{ lineHeight:1.15 }}>
+          <div style={{ color:'#fff', fontSize:14, fontWeight:600 }}>UMass Amherst</div>
+          <div style={{ color:'rgba(255,255,255,0.55)', fontSize:9, fontWeight:600, letterSpacing:3.5, textTransform:'uppercase' }}>SPACES</div>
+        </div>
+      </div>
+      <div style={{ width:1, height:28, background:'rgba(255,255,255,0.15)', flexShrink:0 }}/>
+
+      {/* Search */}
+      <div style={{ flex:1, maxWidth:380, position:'relative' }}>
+        <div style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)', opacity:0.6 }}>
+          <Icons.search color="#fff" size={14}/>
+        </div>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search spaces..." style={{
+          width:'100%', height:34, borderRadius:'var(--radius-pill)', border:'1.5px solid rgba(255,255,255,0.12)',
+          background:'rgba(255,255,255,0.1)', color:'#fff', fontSize:13, fontFamily:'DM Sans',
+          paddingLeft:32, paddingRight: search ? 32 : 14, transition:'all 0.2s',
+        }}/>
+        {search && (
+          <button onClick={()=>setSearch('')} style={{
+            position:'absolute', right:8, top:'50%', transform:'translateY(-50%)',
+            background:'rgba(255,255,255,0.2)', border:'none', borderRadius:'50%',
+            width:20, height:20, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', padding:0
+          }}><Icons.x color="#fff" size={12}/></button>
+        )}
+      </div>
+
+      {/* Nav */}
+      <nav style={{ display:'flex', gap:3, flexShrink:0 }}>
+        {navItems.map(n => (
+          <button key={n.key} onClick={()=>setActiveNav(n.key)} style={{
+            padding:'7px 14px', borderRadius:'var(--radius-pill)', border:'none',
+            background: activeNav===n.key ? 'rgba(255,255,255,0.2)' : 'transparent',
+            color: activeNav===n.key ? '#fff' : 'rgba(255,255,255,0.6)',
+            fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'DM Sans',
+            transition:'all 0.15s', display:'flex', alignItems:'center', gap:6, position:'relative'
+          }}>
+            <n.icon size={14} color={activeNav===n.key ? '#fff' : 'rgba(255,255,255,0.6)'}
+              filled={n.key==='Favorites' && activeNav===n.key}/>
+            <span className="nav-label">{n.label}</span>
+            {n.key==='My Bookings' && bookingCount > 0 && (
+              <span style={{
+                position:'absolute', top:2, right:4, width:8, height:8, borderRadius:'50%',
+                background:'#FAC775', border:'2px solid var(--primary)'
+              }}/>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      <div style={{
+        width:32, height:32, borderRadius:'50%', background:'rgba(255,255,255,0.15)',
+        border:'1.5px solid rgba(255,255,255,0.2)', display:'flex', alignItems:'center',
+        justifyContent:'center', color:'#fff', fontSize:12, fontWeight:600, flexShrink:0
+      }}>SK</div>
+    </header>
+  );
+}
+
+/* ═══════════════ FILTER CHIP ═══════════════ */
+function FilterChip({ label, active, onClick, icon }) {
+  return (
+    <button onClick={onClick} className="btn-hover" style={{
+      padding:'5px 12px', borderRadius:'var(--radius-pill)',
+      border: active ? '1.5px solid var(--primary)' : '1.5px solid var(--border)',
+      background: active ? 'var(--primary)' : '#fff',
+      color: active ? '#fff' : 'var(--text-mid)',
+      fontSize:11, fontWeight:500, cursor:'pointer', fontFamily:'DM Sans',
+      transition:'all 0.15s', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:4
+    }}>
+      {icon && icon}
+      {label}
+    </button>
+  );
+}
+
+/* ═══════════════ SIDEBAR ═══════════════ */
+function Sidebar({ spaces, filters, setFilters, selectedId, onSelect, activeReservation, favorites, toggleFavorite, search }) {
+  const typeOptions = [['all','All'],['free','Free spaces'],['reservable','Reservable']];
+  const noiseOptions = [['any','Any'],['quiet','Quiet'],['collab','Collaborative']];
+  const amenityOptions = [['outlets','Outlets','outlet'],['whiteboard','Whiteboard','whiteboard'],['printer','Printer','printer']];
+
+  const toggleAmenity = (a) => {
+    setFilters(f => ({...f, amenities: f.amenities.includes(a) ? f.amenities.filter(x=>x!==a) : [...f.amenities, a]}));
+  };
+
+  const filtered = useMemo(() => {
+    return spaces.filter(s => {
+      if (filters.type !== 'all' && s.type !== filters.type) return false;
+      if (filters.noise !== 'any' && s.noise !== filters.noise) return false;
+      if (filters.amenities.length > 0 && !filters.amenities.every(a => s.amenities.includes(a))) return false;
+      if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.loc.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+  }, [spaces, filters, search]);
+
+  const freeCount = filtered.filter(s=>s.type==='free').length;
+  const resCount = filtered.filter(s=>s.type==='reservable').length;
+
+  return (
+    <aside style={{
+      width:300, background:'#fff', overflowY:'auto', borderRight:'1px solid var(--border)',
+      flexShrink:0, display:'flex', flexDirection:'column'
+    }}>
+      {/* Filters */}
+      <div style={{ padding:'14px 16px 12px', background:'var(--surface)', borderBottom:'1px solid var(--border-light)' }}>
+        <div style={{ marginBottom:10 }}>
+          <div style={{ fontSize:10, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1, marginBottom:6 }}>Space type</div>
+          <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+            {typeOptions.map(([v,l]) => <FilterChip key={v} label={l} active={filters.type===v} onClick={()=>setFilters(f=>({...f,type:v}))}/>)}
+          </div>
+        </div>
+        <div style={{ marginBottom:10 }}>
+          <div style={{ fontSize:10, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1, marginBottom:6 }}>Noise level</div>
+          <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+            {noiseOptions.map(([v,l]) => <FilterChip key={v} label={l} active={filters.noise===v} onClick={()=>setFilters(f=>({...f,noise:v}))}/>)}
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize:10, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1, marginBottom:6 }}>Amenities</div>
+          <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+            {amenityOptions.map(([v,l,ic]) => (
+              <FilterChip key={v} label={l} active={filters.amenities.includes(v)} onClick={()=>toggleAmenity(v)}
+                icon={amenityIcon(v, filters.amenities.includes(v) ? '#fff' : 'var(--text-muted)')}/>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Section header */}
+      <div style={{ padding:'12px 16px 6px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <span style={{ fontSize:10, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1 }}>
+          Study spaces near you
+        </span>
+        <span style={{ fontSize:11, color:'var(--text-muted)' }}>
+          {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Space cards */}
+      <div style={{ flex:1, overflowY:'auto', padding:'4px 10px 10px' }}>
+        {filtered.length === 0 && (
+          <div style={{ padding:30, textAlign:'center' }}>
+            <div style={{ fontSize:28, marginBottom:8 }}>
+              <Icons.search color="var(--border)" size={32}/>
+            </div>
+            <div style={{ color:'var(--text-muted)', fontSize:13, lineHeight:1.5 }}>No spaces match your filters.{search && ' Try a different search.'}</div>
+          </div>
+        )}
+        {filtered.map((s, idx) => {
+          const isActive = selectedId === s.id;
+          const hasRes = activeReservation && activeReservation.spaceId === s.id;
+          const isFav = favorites.includes(s.id);
+          const oc = occColor(s.occ);
+          return (
+            <div key={s.id} className="card-hover" onClick={() => onSelect(s.id)} style={{
+              padding:'12px 14px', borderRadius:'var(--radius-card)', marginBottom:5, cursor:'pointer',
+              background: isActive ? 'var(--primary-light)' : '#fff',
+              borderLeft: isActive ? '3px solid var(--primary)' : '3px solid transparent',
+              border: isActive ? '1px solid var(--primary-mid)' : '1px solid var(--border-light)',
+              position:'relative', animation:`fadeInUp 0.25s ease ${idx*0.04}s both`
+            }}>
+              {/* Top row: name + favorite */}
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:6 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</div>
+                  <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:8 }}>{s.loc}</div>
+                </div>
+                <div style={{ display:'flex', gap:4, alignItems:'center', flexShrink:0 }}>
+                  {hasRes && (
+                    <span style={{ fontSize:9, fontWeight:700, background:'var(--primary-mid)', color:'var(--primary)',
+                      padding:'2px 7px', borderRadius:'var(--radius-pill)', textTransform:'uppercase', letterSpacing:0.5 }}>Reserved</span>
+                  )}
+                  <button onClick={e=>{e.stopPropagation();toggleFavorite(s.id)}} style={{
+                    background:'none', border:'none', cursor:'pointer', padding:2, opacity: isFav ? 1 : 0.3,
+                    transition:'all 0.2s', transform: isFav ? 'scale(1)' : 'scale(0.9)'
+                  }}><Icons.heart size={14} filled={isFav} color={isFav ? 'var(--primary)' : 'var(--text-muted)'}/></button>
+                </div>
+              </div>
+
+              {/* Badges */}
+              <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
+                {s.type === 'free' ? (
+                  <span style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:'var(--radius-pill)',
+                    background:'var(--green-light)', color:'var(--green-dark)', border:'1px solid var(--green-border)' }}>Free space</span>
+                ) : (
+                  <span style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:'var(--radius-pill)',
+                    background:'var(--primary-light)', color:'var(--primary)', border:'1px solid var(--primary-mid)' }}>Reservable</span>
+                )}
+                {s.type === 'free' ? (
+                  <span style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:'var(--radius-pill)',
+                    background:oc.bg, color:oc.text }}>{pct(s.occ)}% full · {occLabel(s.occ)}</span>
+                ) : (
+                  <span style={{ fontSize:10, fontWeight:500, padding:'2px 8px', borderRadius:'var(--radius-pill)',
+                    background:'var(--surface-2)', color:'var(--text-mid)' }}>
+                    {s.slots.length - s.takenSlots.length} slot{s.slots.length - s.takenSlots.length !== 1 ? 's' : ''} open
+                  </span>
+                )}
+              </div>
+
+              {/* Occupancy bar for free spaces */}
+              {s.type === 'free' && (
+                <div style={{ marginTop:8, height:3, borderRadius:2, background:'var(--border-light)', overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${pct(s.occ)}%`, borderRadius:2, background:oc.ring, transition:'width 0.5s ease' }}/>
+                </div>
+              )}
+
+              {/* Amenity icons row */}
+              <div style={{ marginTop:8, display:'flex', gap:4 }}>
+                {s.amenities.map(a => (
+                  <span key={a} style={{ opacity:0.4 }}>{amenityIcon(a, 'var(--text-mid)')}</span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
+/* ═══════════════ PANNABLE MAP ═══════════════ */
+function CampusMap({ spaces, selectedId, onSelect, activeReservation, filters, search, hoveredId, setHoveredId }) {
+  const containerRef = useRef(null);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const MIN_ZOOM = 0.5, MAX_ZOOM = 3;
+
+  const filtered = useMemo(() => {
+    return spaces.filter(s => {
+      if (filters.type !== 'all' && s.type !== filters.type) return false;
+      if (filters.noise !== 'any' && s.noise !== filters.noise) return false;
+      if (filters.amenities.length > 0 && !filters.amenities.every(a => s.amenities.includes(a))) return false;
+      if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.loc.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+  }, [spaces, filters, search]);
+
+  const handleMouseDown = useCallback((e) => {
+    if (e.target.closest('.map-pin')) return;
+    setDragging(true);
+    dragStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+  }, [pan]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!dragging) return;
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+    setPan({ x: dragStart.current.panX + dx, y: dragStart.current.panY + dy });
+  }, [dragging]);
+
+  const handleMouseUp = useCallback(() => setDragging(false), []);
+
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(z => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z + delta)));
+  }, []);
+
+  const handleTouchStart = useRef(null);
+  const handleTouchDist = useRef(null);
+
+  const onTouchStart = useCallback((e) => {
+    if (e.touches.length === 1) {
+      setDragging(true);
+      dragStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, panX: pan.x, panY: pan.y };
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      handleTouchDist.current = Math.sqrt(dx*dx + dy*dy);
+    }
+  }, [pan]);
+
+  const onTouchMove = useCallback((e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && dragging) {
+      const dx = e.touches[0].clientX - dragStart.current.x;
+      const dy = e.touches[0].clientY - dragStart.current.y;
+      setPan({ x: dragStart.current.panX + dx, y: dragStart.current.panY + dy });
+    } else if (e.touches.length === 2 && handleTouchDist.current) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const scale = dist / handleTouchDist.current;
+      setZoom(z => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * scale)));
+      handleTouchDist.current = dist;
+    }
+  }, [dragging]);
+
+  const onTouchEnd = useCallback(() => { setDragging(false); handleTouchDist.current = null; }, []);
+
+  const resetView = () => { setPan({x:0,y:0}); setZoom(1); };
+  const zoomIn = () => setZoom(z => Math.min(MAX_ZOOM, z + 0.25));
+  const zoomOut = () => setZoom(z => Math.max(MIN_ZOOM, z - 0.25));
+
+  // Center on selected pin
+  useEffect(() => {
+    if (selectedId === null) return;
+    const sp = spaces.find(s=>s.id===selectedId);
+    if (!sp || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const cx = rect.width / 2, cy = rect.height / 2;
+    const svgW = 900, svgH = 520;
+    const baseScale = Math.min(rect.width/svgW, rect.height/svgH) * zoom;
+    // Gently nudge toward the pin
+    const targetX = cx - sp.mapX * baseScale;
+    const targetY = cy - sp.mapY * baseScale;
+    // Lerp toward target
+    setPan(p => ({ x: p.x + (targetX - p.x)*0.3, y: p.y + (targetY - p.y)*0.3 }));
+  }, [selectedId]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [handleWheel]);
+
+  /* Building data */
+  const buildings = [
+    { x:275, y:155, w:110, h:65, name:"W.E.B. Du Bois\nLibrary", main:true },
+    { x:530, y:105, w:115, h:60, name:"Design\nBuilding" },
+    { x:135, y:295, w:110, h:60, name:"Lederle\nGrad Tower" },
+    { x:440, y:310, w:105, h:55, name:"ISB" },
+    { x:670, y:215, w:110, h:60, name:"Engineering\nLab" },
+    { x:605, y:375, w:120, h:55, name:"Student\nUnion" },
+    { x:370, y:430, w:90, h:45, name:"Campus\nCenter" },
+    { x:135, y:170, w:80, h:45, name:"Herter\nHall" },
+    { x:760, y:130, w:90, h:45, name:"Morrill\nScience" },
+    { x:760, y:350, w:85, h:45, name:"Fine Arts\nCenter" },
+    { x:350, y:100, w:80, h:40, name:"Thompson\nHall" },
+  ];
+
+  return (
+    <div ref={containerRef} style={{
+      width:'100%', height:'100%', overflow:'hidden', position:'relative',
+      cursor: dragging ? 'grabbing' : 'grab', background:'#dde8d0', touchAction:'none'
+    }}
+      onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+    >
+      <svg viewBox="0 0 900 520" preserveAspectRatio="xMidYMid meet" style={{
+        width:'100%', height:'100%', transform:`translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+        transformOrigin:'center center', transition: dragging ? 'none' : 'transform 0.15s ease-out',
+        userSelect:'none'
+      }}>
+        <defs>
+          <pattern id="grass" width="20" height="20" patternUnits="userSpaceOnUse">
+            <rect width="20" height="20" fill="#dde8d0"/>
+            <circle cx="5" cy="8" r="0.5" fill="#c8dbb5" opacity="0.5"/>
+            <circle cx="15" cy="3" r="0.4" fill="#c8dbb5" opacity="0.4"/>
+            <circle cx="10" cy="16" r="0.5" fill="#c8dbb5" opacity="0.5"/>
+          </pattern>
+          <filter id="pinShadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.2"/>
+          </filter>
+          <filter id="bldgShadow" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="1" dy="1" stdDeviation="2" floodOpacity="0.1"/>
+          </filter>
+        </defs>
+
+        {/* Background with texture */}
+        <rect width="900" height="520" fill="url(#grass)"/>
+
+        {/* Pond */}
+        <ellipse cx="400" cy="265" rx="35" ry="20" fill="#b8d4e8" stroke="#9cc0d8" strokeWidth="1" opacity="0.6"/>
+        <text x="400" y="269" textAnchor="middle" fill="#7ba4bb" fontSize="7" fontFamily="DM Sans" fontWeight="500" opacity="0.7">Campus Pond</text>
+
+        {/* Walkway grid */}
+        {[100,180,260,340,420].map(y => (
+          <line key={`h${y}`} x1="40" y1={y} x2="860" y2={y} stroke="#c4d4ac" strokeWidth="0.7" strokeDasharray="6,10" opacity="0.5"/>
+        ))}
+        {[150,300,450,600,750].map(x => (
+          <line key={`v${x}`} x1={x} y1="40" x2={x} y2="480" stroke="#c4d4ac" strokeWidth="0.7" strokeDasharray="6,10" opacity="0.5"/>
+        ))}
+
+        {/* Main walkways */}
+        <path d="M60 260 Q200 258 440 260 Q650 262 860 260" stroke="#c8d4b0" strokeWidth="5" fill="none" strokeLinecap="round"/>
+        <path d="M450 40 L450 480" stroke="#c8d4b0" strokeWidth="4" strokeLinecap="round"/>
+        <path d="M220 120 Q450 115 700 120 L700 420 Q450 425 220 420 Z" stroke="#c0cca8" strokeWidth="1.5" fill="none" rx="10"/>
+
+        {/* Trees */}
+        {[[100,120],[250,430],[500,460],[780,200],[820,430],[100,410],[670,100],[300,300],[550,270],[700,440]].map(([tx,ty],i) => (
+          <g key={`tree${i}`}>
+            <circle cx={tx} cy={ty} r={6+Math.random()*4} fill="#8bb862" opacity="0.5"/>
+            <circle cx={tx-2} cy={ty-2} r={4+Math.random()*3} fill="#9ec975" opacity="0.6"/>
+          </g>
+        ))}
+
+        {/* Buildings */}
+        {buildings.map((b, i) => (
+          <g key={i} filter="url(#bldgShadow)">
+            <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="8"
+              fill={b.main ? '#8fb86a' : '#a2c47e'} stroke={b.main ? '#6a9940' : '#7da85a'} strokeWidth="1.5"/>
+            {b.name.split('\n').map((line, li, arr) => (
+              <text key={li} x={b.x+b.w/2} y={b.y+b.h/2+(li-(arr.length-1)/2)*12}
+                textAnchor="middle" dominantBaseline="central" fill={b.main ? '#2a4a12' : '#3a5a20'}
+                fontSize={b.main ? '9' : '9'} fontWeight="600" fontFamily="DM Sans">{line}</text>
+            ))}
+          </g>
+        ))}
+
+        {/* Map pins */}
+        {filtered.map(s => {
+          const isSelected = selectedId === s.id;
+          const isHovered = hoveredId === s.id;
+          const scale = isSelected ? 1.2 : isHovered ? 1.08 : 1;
+
+          if (s.type === 'free') {
+            const oc = occColor(s.occ);
+            return (
+              <g key={s.id} className="map-pin"
+                onClick={(e)=>{e.stopPropagation();onSelect(s.id)}}
+                onMouseEnter={()=>setHoveredId(s.id)} onMouseLeave={()=>setHoveredId(null)}
+                style={{ cursor:'pointer' }}>
+                {/* Pulse ring for selected */}
+                {isSelected && (
+                  <circle cx={s.mapX} cy={s.mapY} r="22" fill="none" stroke={oc.ring} strokeWidth="2" opacity="0.4">
+                    <animate attributeName="r" from="22" to="36" dur="1.5s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" from="0.5" to="0" dur="1.5s" repeatCount="indefinite"/>
+                  </circle>
+                )}
+                <g transform={`translate(${s.mapX},${s.mapY}) scale(${scale})`} style={{ transition:'transform 0.2s ease' }} filter="url(#pinShadow)">
+                  <circle cx="0" cy="0" r="20" fill="white" stroke={oc.ring} strokeWidth={isSelected?3:2.5}/>
+                  <text x="0" y="-3" textAnchor="middle" dominantBaseline="central" fill={oc.ring} fontSize="12" fontWeight="700" fontFamily="DM Sans">{pct(s.occ)}%</text>
+                  <text x="0" y="9" textAnchor="middle" dominantBaseline="central" fill={oc.ring} fontSize="7" fontWeight="500" fontFamily="DM Sans">full</text>
+                </g>
+                {/* Hover tooltip */}
+                {(isHovered || isSelected) && (
+                  <g transform={`translate(${s.mapX},${s.mapY - 32})`}>
+                    <rect x={-s.name.length*3.2} y="-14" width={s.name.length*6.4} height="20" rx="6" fill="rgba(26,23,20,0.85)"/>
+                    <text x="0" y="0" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="9" fontWeight="500" fontFamily="DM Sans">{s.name}</text>
+                  </g>
+                )}
+              </g>
+            );
+          } else {
+            const hasRes = activeReservation && activeReservation.spaceId === s.id;
+            return (
+              <g key={s.id} className="map-pin"
+                onClick={(e)=>{e.stopPropagation();onSelect(s.id)}}
+                onMouseEnter={()=>setHoveredId(s.id)} onMouseLeave={()=>setHoveredId(null)}
+                style={{ cursor:'pointer' }}>
+                {isSelected && (
+                  <circle cx={s.mapX} cy={s.mapY} r="22" fill="none" stroke={hasRes?'#27500A':'var(--primary)'} strokeWidth="2" opacity="0.4">
+                    <animate attributeName="r" from="22" to="36" dur="1.5s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" from="0.5" to="0" dur="1.5s" repeatCount="indefinite"/>
+                  </circle>
+                )}
+                <g transform={`translate(${s.mapX},${s.mapY}) scale(${scale})`} style={{ transition:'transform 0.2s ease' }} filter="url(#pinShadow)">
+                  <circle cx="0" cy="0" r="20" fill={hasRes?'#27500A':'var(--primary)'} stroke={isSelected?'#fff':'none'} strokeWidth={isSelected?3:0}/>
+                  <text x="0" y="-3" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="10" fontWeight="700" fontFamily="DM Sans">{hasRes?'Your':'Book'}</text>
+                  <text x="0" y="9" textAnchor="middle" dominantBaseline="central" fill="rgba(255,255,255,0.8)" fontSize="7.5" fontWeight="500" fontFamily="DM Sans">slot</text>
+                </g>
+                {(isHovered || isSelected) && (
+                  <g transform={`translate(${s.mapX},${s.mapY - 32})`}>
+                    <rect x={-s.name.length*3.2} y="-14" width={s.name.length*6.4} height="20" rx="6" fill="rgba(26,23,20,0.85)"/>
+                    <text x="0" y="0" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="9" fontWeight="500" fontFamily="DM Sans">{s.name}</text>
+                  </g>
+                )}
+              </g>
+            );
+          }
+        })}
+
+        {/* Legend */}
+        <g transform="translate(16,420)">
+          <rect width="240" height="82" rx="10" fill="white" stroke="var(--border)" strokeWidth="1" filter="url(#bldgShadow)"/>
+          <text x="14" y="20" fill="var(--text)" fontSize="10" fontWeight="700" fontFamily="DM Sans">Map Legend</text>
+          <circle cx="26" cy="38" r="7" fill="white" stroke="#3B6D11" strokeWidth="2"/>
+          <text x="40" y="42" fill="var(--text-mid)" fontSize="9" fontFamily="DM Sans" fontWeight="500">Free — Low occupancy</text>
+          <circle cx="26" cy="56" r="7" fill="white" stroke="#881c1c" strokeWidth="2"/>
+          <text x="40" y="60" fill="var(--text-mid)" fontSize="9" fontFamily="DM Sans" fontWeight="500">Free — High occupancy</text>
+          <circle cx="26" cy="72" r="7" fill="#881c1c"/>
+          <text x="40" y="76" fill="var(--text-mid)" fontSize="9" fontFamily="DM Sans" fontWeight="500">Reservable room</text>
+        </g>
+      </svg>
+
+      {/* Zoom controls */}
+      <div style={{ position:'absolute', top:12, right:12, display:'flex', flexDirection:'column', gap:4, zIndex:10 }}>
+        <button onClick={zoomIn} className="btn-hover" style={{
+          width:36, height:36, borderRadius:'var(--radius)', border:'1px solid var(--border)',
+          background:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+          boxShadow:'var(--shadow-sm)'
+        }}><Icons.plus size={16} color="var(--text)"/></button>
+        <button onClick={zoomOut} className="btn-hover" style={{
+          width:36, height:36, borderRadius:'var(--radius)', border:'1px solid var(--border)',
+          background:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+          boxShadow:'var(--shadow-sm)'
+        }}><Icons.minus size={16} color="var(--text)"/></button>
+        <button onClick={resetView} className="btn-hover" style={{
+          width:36, height:36, borderRadius:'var(--radius)', border:'1px solid var(--border)',
+          background:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+          boxShadow:'var(--shadow-sm)'
+        }}><Icons.maximize size={14} color="var(--text)"/></button>
+      </div>
+
+      {/* Zoom level indicator */}
+      <div style={{
+        position:'absolute', bottom:12, right:12, background:'rgba(255,255,255,0.9)', borderRadius:'var(--radius-pill)',
+        padding:'4px 10px', fontSize:10, color:'var(--text-muted)', fontWeight:500, boxShadow:'var(--shadow-sm)'
+      }}>{Math.round(zoom*100)}%</div>
+    </div>
+  );
+}
+
+/* ═══════════════ DETAIL PANEL ═══════════════ */
+function DetailPanel({ space, activeReservation, onReport, onReserve, onRelease, onClose }) {
+  if (!space) {
+    return (
+      <div style={{
+        height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+        padding:40, textAlign:'center', color:'var(--text-muted)', background:'var(--surface)'
+      }}>
+        <Icons.map size={40} color="var(--border)"/>
+        <div style={{ fontSize:14, fontWeight:500, marginTop:12, color:'var(--text-mid)' }}>Select a study space</div>
+        <div style={{ fontSize:12, marginTop:4, lineHeight:1.5 }}>Tap a pin on the map or a card in the sidebar to view details</div>
+      </div>
+    );
+  }
+
+  const isFree = space.type === 'free';
+  const hasRes = activeReservation && activeReservation.spaceId === space.id;
+  const oc = occColor(space.occ);
+  const reportCount = Math.floor(Math.random()*8)+4;
+
+  return (
+    <div style={{
+      height:'100%', overflowY:'auto', background:'#fff',
+      animation:'slideInRight 0.25s ease', padding:'0'
+    }}>
+      {/* Header */}
+      <div style={{ padding:'16px 20px 12px', background:'var(--surface)', borderBottom:'1px solid var(--border-light)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
+          <div>
+            <h2 style={{ fontSize:16, fontWeight:700, marginBottom:3, color:'var(--text)' }}>{space.name}</h2>
+            <div style={{ fontSize:12, color:'var(--text-muted)' }}>{space.loc}</div>
+          </div>
+          <button onClick={onClose} style={{
+            background:'var(--surface-2)', border:'none', borderRadius:'50%', width:28, height:28,
+            display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0
+          }}><Icons.x size={14} color="var(--text-mid)"/></button>
+        </div>
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:10 }}>
+          {isFree ? (
+            <span style={{ fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:'var(--radius-pill)',
+              background:'var(--green-light)', color:'var(--green-dark)', border:'1px solid var(--green-border)' }}>Free space</span>
+          ) : (
+            <span style={{ fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:'var(--radius-pill)',
+              background:'var(--primary-light)', color:'var(--primary)', border:'1px solid var(--primary-mid)' }}>Reservable</span>
+          )}
+          <span style={{ fontSize:10, fontWeight:500, padding:'3px 10px', borderRadius:'var(--radius-pill)',
+            background:'var(--surface-2)', color:'var(--text-mid)' }}>{space.noise==='quiet' ? 'Quiet zone' : 'Collaborative'}</span>
+        </div>
+      </div>
+
+      <div style={{ padding:'16px 20px' }}>
+        {/* Amenity tags */}
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16 }}>
+          {space.amenities.map(a => (
+            <span key={a} style={{
+              fontSize:11, padding:'4px 10px', borderRadius:'var(--radius-pill)',
+              background:'var(--surface)', color:'var(--text-mid)', display:'flex', alignItems:'center', gap:5,
+              border:'1px solid var(--border-light)'
+            }}>{amenityIcon(a, 'var(--text-muted)')}<span style={{textTransform:'capitalize'}}>{a}</span></span>
+          ))}
+        </div>
+
+        {/* Stat cards */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:16 }}>
+          <div style={{ background:'var(--surface)', borderRadius:'var(--radius)', padding:'12px', border:'1px solid var(--border-light)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:6 }}>
+              <Icons.users size={12} color="var(--text-muted)"/>
+              <span style={{ fontSize:9, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.6 }}>Capacity</span>
+            </div>
+            <div style={{ fontSize:20, fontWeight:700, color:'var(--text)' }}>{space.cap}</div>
+          </div>
+          <div style={{ background:'var(--surface)', borderRadius:'var(--radius)', padding:'12px', border:'1px solid var(--border-light)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:6 }}>
+              <Icons.zap size={12} color={isFree ? oc.ring : 'var(--primary)'}/>
+              <span style={{ fontSize:9, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.6 }}>Right now</span>
+            </div>
+            <div style={{ fontSize:20, fontWeight:700, color: isFree ? oc.ring : 'var(--primary)' }}>
+              {isFree ? `${pct(space.occ)}%` : (hasRes ? 'Booked' : 'Open')}
+            </div>
+          </div>
+          <div style={{ background:'var(--surface)', borderRadius:'var(--radius)', padding:'12px', border:'1px solid var(--border-light)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:6 }}>
+              <Icons.clock size={12} color="var(--text-muted)"/>
+              <span style={{ fontSize:9, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.6 }}>Open until</span>
+            </div>
+            <div style={{ fontSize:20, fontWeight:700, color:'var(--text)' }}>{space.hours}</div>
+          </div>
+        </div>
+
+        {/* Occupancy bar for free spaces */}
+        {isFree && (
+          <div style={{ marginBottom:16 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+              <span style={{ fontSize:11, fontWeight:600, color:'var(--text-mid)' }}>Occupancy level</span>
+              <span style={{ fontSize:11, fontWeight:700, color:oc.ring }}>{pct(space.occ)}% · {occLabel(space.occ)}</span>
+            </div>
+            <div style={{ height:6, borderRadius:4, background:'var(--border-light)', overflow:'hidden' }}>
+              <div style={{ height:'100%', width:`${pct(space.occ)}%`, borderRadius:4, background:oc.ring, transition:'width 0.6s ease' }}/>
+            </div>
+          </div>
+        )}
+
+        {/* Context info box */}
+        {isFree && (
+          <div style={{
+            background:'var(--green-light)', border:'1px solid var(--green-border)',
+            borderRadius:'var(--radius)', padding:'12px 14px', marginBottom:16, fontSize:12,
+            color:'var(--green-dark)', lineHeight:1.6, display:'flex', gap:10
+          }}>
+            <div style={{ flexShrink:0, marginTop:2 }}><Icons.check size={14} color="var(--green-mid)"/></div>
+            <div>This is an open common space — walk in anytime, no booking needed. Occupancy data is crowd-sourced from student reports.</div>
+          </div>
+        )}
+        {!isFree && !hasRes && (
+          <div style={{
+            background:'var(--primary-light)', border:'1px solid var(--primary-mid)',
+            borderRadius:'var(--radius)', padding:'12px 14px', marginBottom:16, fontSize:12,
+            color:'var(--primary-dark)', lineHeight:1.6, display:'flex', gap:10
+          }}>
+            <div style={{ flexShrink:0, marginTop:2 }}><Icons.calendar size={14} color="var(--primary)"/></div>
+            <div>Reserve a time slot — it's held exclusively for you. No-show within 10 minutes of your start time means the slot is auto-released.</div>
+          </div>
+        )}
+        {!isFree && hasRes && (
+          <div style={{
+            background:'var(--green-light)', border:'1px solid var(--green-border)',
+            borderRadius:'var(--radius)', padding:'12px 14px', marginBottom:16, fontSize:12,
+            color:'var(--green-dark)', lineHeight:1.6, display:'flex', gap:10
+          }}>
+            <div style={{ flexShrink:0, marginTop:2 }}><Icons.check size={14} color="var(--green-mid)"/></div>
+            <div>Your reserved slot: <strong>{space.slots[activeReservation.slotIndex]}</strong>. No-show within 10 minutes of start time = auto-released.</div>
+          </div>
+        )}
+
+        {/* Slot availability preview for reservable */}
+        {!isFree && !hasRes && (
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:'var(--text-mid)', marginBottom:8 }}>Available slots today</div>
+            <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+              {space.slots.map((sl,i) => {
+                const taken = space.takenSlots.includes(i);
+                return (
+                  <span key={i} style={{
+                    fontSize:11, padding:'4px 10px', borderRadius:'var(--radius-pill)',
+                    background: taken ? 'var(--surface-2)' : 'var(--green-light)',
+                    color: taken ? 'var(--text-muted)' : 'var(--green-dark)',
+                    textDecoration: taken ? 'line-through' : 'none',
+                    border: taken ? '1px solid var(--border-light)' : '1px solid var(--green-border)',
+                    fontWeight: taken ? 400 : 600, opacity: taken ? 0.5 : 1
+                  }}>{sl}</span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Action button */}
+        <div style={{ marginBottom:12 }}>
+          {isFree && (
+            <button onClick={onReport} className="btn-hover" style={{
+              width:'100%', padding:'12px', borderRadius:'var(--radius)', border:'none',
+              background:'var(--primary)', color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer'
+            }}>Report current occupancy</button>
+          )}
+          {!isFree && !hasRes && (
+            <button onClick={onReserve} className="btn-hover" style={{
+              width:'100%', padding:'12px', borderRadius:'var(--radius)', border:'none',
+              background:'var(--primary)', color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer'
+            }}>Reserve a slot</button>
+          )}
+          {!isFree && hasRes && (
+            <button onClick={onRelease} className="btn-hover" style={{
+              width:'100%', padding:'12px', borderRadius:'var(--radius)',
+              border:'2px solid var(--primary)', background:'#fff', color:'var(--primary)',
+              fontSize:14, fontWeight:600, cursor:'pointer'
+            }}>Release my slot early</button>
+          )}
+        </div>
+
+        {/* Footnote */}
+        <div style={{ fontSize:11, color:'var(--text-muted)', textAlign:'center', lineHeight:1.5 }}>
+          {isFree
+            ? `Last updated 3 min ago · ${reportCount} recent reports`
+            : 'No-show within 10 min = slot auto-released'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ FAVORITES VIEW ═══════════════ */
+function FavoritesView({ spaces, favorites, toggleFavorite, onSelect, activeReservation }) {
+  const favSpaces = spaces.filter(s => favorites.includes(s.id));
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:24, background:'var(--surface)' }}>
+      <h2 style={{ fontSize:18, fontWeight:700, marginBottom:4, color:'var(--text)' }}>Your Favorites</h2>
+      <p style={{ fontSize:13, color:'var(--text-muted)', marginBottom:20 }}>Quick access to spaces you've saved</p>
+      {favSpaces.length === 0 ? (
+        <div style={{ textAlign:'center', padding:'60px 20px' }}>
+          <Icons.heart size={40} color="var(--border)"/>
+          <div style={{ fontSize:14, fontWeight:500, color:'var(--text-mid)', marginTop:12 }}>No favorites yet</div>
+          <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:4 }}>Tap the heart icon on any space card to save it here</div>
+        </div>
+      ) : (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:12 }}>
+          {favSpaces.map(s => {
+            const oc = occColor(s.occ);
+            const hasRes = activeReservation && activeReservation.spaceId === s.id;
+            return (
+              <div key={s.id} className="card-hover" onClick={() => onSelect(s.id)} style={{
+                padding:16, borderRadius:'var(--radius-card)', background:'#fff', cursor:'pointer',
+                border:'1px solid var(--border-light)', boxShadow:'var(--shadow-sm)', position:'relative'
+              }}>
+                <button onClick={e=>{e.stopPropagation();toggleFavorite(s.id)}} style={{
+                  position:'absolute', top:12, right:12, background:'none', border:'none', cursor:'pointer'
+                }}><Icons.heart size={16} filled color="var(--primary)"/></button>
+                <div style={{ fontSize:14, fontWeight:600, marginBottom:3 }}>{s.name}</div>
+                <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:10 }}>{s.loc}</div>
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
+                  {s.type==='free' ? (
+                    <>
+                      <span style={{ fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:'var(--radius-pill)',
+                        background:'var(--green-light)', color:'var(--green-dark)' }}>Free space</span>
+                      <span style={{ fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:'var(--radius-pill)',
+                        background:oc.bg, color:oc.text }}>{pct(s.occ)}% full</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:'var(--radius-pill)',
+                        background:'var(--primary-light)', color:'var(--primary)' }}>Reservable</span>
+                      {hasRes && <span style={{ fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:'var(--radius-pill)',
+                        background:'var(--primary-mid)', color:'var(--primary)' }}>Reserved</span>}
+                    </>
+                  )}
+                </div>
+                <div style={{ marginTop:10, display:'flex', gap:6 }}>
+                  {s.amenities.map(a => (
+                    <span key={a} style={{ opacity:0.4 }}>{amenityIcon(a, 'var(--text-mid)')}</span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════ MY BOOKINGS VIEW ═══════════════ */
+function MyBookingsView({ spaces, activeReservation, onRelease, onSelect }) {
+  const bookedSpace = activeReservation ? spaces.find(s => s.id === activeReservation.spaceId) : null;
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:24, background:'var(--surface)' }}>
+      <h2 style={{ fontSize:18, fontWeight:700, marginBottom:4, color:'var(--text)' }}>My Bookings</h2>
+      <p style={{ fontSize:13, color:'var(--text-muted)', marginBottom:20 }}>Manage your active reservations</p>
+      {!bookedSpace ? (
+        <div style={{ textAlign:'center', padding:'60px 20px' }}>
+          <Icons.calendar size={40} color="var(--border)"/>
+          <div style={{ fontSize:14, fontWeight:500, color:'var(--text-mid)', marginTop:12 }}>No active bookings</div>
+          <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:4 }}>Reserve a study room from the map to see it here</div>
+        </div>
+      ) : (
+        <div style={{
+          background:'#fff', borderRadius:'var(--radius-card)', padding:20,
+          border:'1px solid var(--border-light)', boxShadow:'var(--shadow-sm)', maxWidth:440
+        }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
+            <div>
+              <div style={{ fontSize:15, fontWeight:700, marginBottom:3 }}>{bookedSpace.name}</div>
+              <div style={{ fontSize:12, color:'var(--text-muted)' }}>{bookedSpace.loc}</div>
+            </div>
+            <span style={{ fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:'var(--radius-pill)',
+              background:'var(--green-light)', color:'var(--green-dark)', border:'1px solid var(--green-border)' }}>Active</span>
+          </div>
+
+          <div style={{ display:'flex', gap:10, marginBottom:16 }}>
+            <div style={{ background:'var(--surface)', borderRadius:'var(--radius)', padding:'10px 14px', flex:1 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.6, marginBottom:4 }}>Time slot</div>
+              <div style={{ fontSize:16, fontWeight:700, color:'var(--primary)' }}>{bookedSpace.slots[activeReservation.slotIndex]}</div>
+            </div>
+            <div style={{ background:'var(--surface)', borderRadius:'var(--radius)', padding:'10px 14px', flex:1 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.6, marginBottom:4 }}>Room capacity</div>
+              <div style={{ fontSize:16, fontWeight:700, color:'var(--text)' }}>{bookedSpace.cap} seats</div>
+            </div>
+          </div>
+
+          <div style={{
+            background:'var(--amber-light)', border:'1px solid var(--amber-border)',
+            borderRadius:'var(--radius)', padding:'10px 12px', marginBottom:16, fontSize:11,
+            color:'var(--amber-dark)', lineHeight:1.5, display:'flex', gap:8
+          }}>
+            <Icons.clock size={14} color="var(--amber-mid)"/>
+            <span>No-show within 10 min of start = auto-released. Arrive on time to keep your slot.</span>
+          </div>
+
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={() => onSelect(bookedSpace.id)} className="btn-hover" style={{
+              flex:1, padding:'10px', borderRadius:'var(--radius)', border:'1.5px solid var(--border)',
+              background:'#fff', color:'var(--text)', fontSize:13, fontWeight:600, cursor:'pointer'
+            }}>View on map</button>
+            <button onClick={onRelease} className="btn-hover" style={{
+              flex:1, padding:'10px', borderRadius:'var(--radius)',
+              border:'1.5px solid var(--primary)', background:'#fff', color:'var(--primary)',
+              fontSize:13, fontWeight:600, cursor:'pointer'
+            }}>Release early</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════ MODAL BACKDROP ═══════════════ */
+function ModalBackdrop({ children, onClose }) {
+  return (
+    <MDiv initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={onClose} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:200,
+      display:'flex', alignItems:'flex-end', justifyContent:'center', backdropFilter:'blur(2px)'
+    }}>
+      <MDiv initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}}
+        transition={{type:'spring', damping:28, stiffness:300}}
+        onClick={e=>e.stopPropagation()} style={{
+          background:'#fff', borderRadius:'20px 20px 0 0', width:'100%', maxWidth:480,
+          maxHeight:'82vh', overflowY:'auto', padding:'10px 24px 28px', boxShadow:'var(--shadow-lg)'
+      }}>
+        <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}>
+          <div style={{ width:36, height:4, borderRadius:2, background:'var(--border)' }}/>
+        </div>
+        {children}
+      </MDiv>
+    </MDiv>
+  );
+}
+
+/* ═══════════════ REPORT MODAL ═══════════════ */
+function ReportModal({ space, onClose, onSubmit }) {
+  const [selected, setSelected] = useState(null);
+  const options = [
+    { key:'empty', label:'Nearly empty', desc:'Plenty of seats', color:'var(--green-mid)', bg:'var(--green-light)', border:'var(--green-border)' },
+    { key:'moderate', label:'Moderate', desc:'Some seats left', color:'var(--amber-mid)', bg:'var(--amber-light)', border:'var(--amber-border)' },
+    { key:'busy', label:'Very busy', desc:'Hard to find a seat', color:'var(--primary)', bg:'var(--primary-light)', border:'var(--primary-mid)' }
+  ];
+  return (
+    <ModalBackdrop onClose={onClose}>
+      <h3 style={{ fontSize:17, fontWeight:700, marginBottom:4, color:'var(--text)' }}>Report occupancy</h3>
+      <div style={{ fontSize:13, color:'var(--text-muted)', marginBottom:20 }}>{space.name}</div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:20 }}>
+        {options.map(o => (
+          <button key={o.key} onClick={()=>setSelected(o.key)} style={{
+            padding:'18px 8px 14px', borderRadius:'var(--radius-card)', cursor:'pointer',
+            border: selected===o.key ? `2.5px solid ${o.color}` : '2px solid var(--border-light)',
+            background: selected===o.key ? o.bg : '#fff',
+            textAlign:'center', transition:'all 0.2s', fontFamily:'DM Sans'
+          }}>
+            <div style={{ width:32, height:32, borderRadius:'50%', background: selected===o.key ? o.color : 'var(--surface-2)',
+              display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 8px', transition:'all 0.2s' }}>
+              <div style={{ width:12, height:12, borderRadius:'50%', background: selected===o.key ? '#fff' : o.color }}/>
+            </div>
+            <div style={{ fontSize:12, fontWeight:700, color: selected===o.key ? o.color : 'var(--text-mid)', marginBottom:2 }}>{o.label}</div>
+            <div style={{ fontSize:10, color:'var(--text-muted)' }}>{o.desc}</div>
+          </button>
+        ))}
+      </div>
+      <div style={{
+        background:'var(--green-light)', border:'1px solid var(--green-border)',
+        borderRadius:'var(--radius)', padding:'12px 14px', marginBottom:20, fontSize:12,
+        color:'var(--green-dark)', lineHeight:1.6, display:'flex', gap:10
+      }}>
+        <Icons.check size={14} color="var(--green-mid)"/>
+        <span>This is a free space — your report helps other UMass students plan. No restrictions are ever placed on this space.</span>
+      </div>
+      <button disabled={!selected} onClick={()=>onSubmit(selected)} className="btn-hover" style={{
+        width:'100%', padding:'13px', borderRadius:'var(--radius)', border:'none',
+        background: selected ? 'var(--primary)' : 'var(--border)', color: selected ? '#fff' : 'var(--text-muted)',
+        fontSize:14, fontWeight:600, cursor: selected ? 'pointer' : 'not-allowed',
+        marginBottom:10, transition:'all 0.2s'
+      }}>Submit report</button>
+      <button onClick={onClose} style={{
+        width:'100%', padding:'8px', border:'none', background:'none',
+        color:'var(--text-muted)', fontSize:13, cursor:'pointer', fontFamily:'DM Sans'
+      }}>Cancel</button>
+    </ModalBackdrop>
+  );
+}
+
+/* ═══════════════ RESERVE MODAL ═══════════════ */
+function ReserveModal({ space, onClose, onConfirm }) {
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  return (
+    <ModalBackdrop onClose={onClose}>
+      <h3 style={{ fontSize:17, fontWeight:700, marginBottom:4, color:'var(--text)' }}>Reserve a slot</h3>
+      <div style={{ fontSize:13, color:'var(--text-muted)', marginBottom:20 }}>{space.name} · {space.cap} seats</div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:20 }}>
+        {space.slots.map((slot, i) => {
+          const taken = space.takenSlots.includes(i);
+          const active = selectedSlot === i;
+          return (
+            <button key={i} disabled={taken} onClick={()=>!taken && setSelectedSlot(i)} style={{
+              padding:'14px 8px', borderRadius:'var(--radius)', fontFamily:'DM Sans',
+              border: active ? '2.5px solid var(--primary)' : taken ? '1.5px solid var(--border-light)' : '1.5px solid var(--border)',
+              background: taken ? 'var(--surface-2)' : active ? 'var(--primary-light)' : '#fff',
+              color: taken ? 'var(--text-muted)' : active ? 'var(--primary)' : 'var(--text)',
+              textDecoration: taken ? 'line-through' : 'none',
+              cursor: taken ? 'not-allowed' : 'pointer', fontSize:13, fontWeight:600,
+              transition:'all 0.15s', opacity: taken ? 0.4 : 1
+            }}>
+              <div>{slot}</div>
+              {taken && <div style={{ fontSize:9, fontWeight:500, textDecoration:'none', marginTop:2 }}>Taken</div>}
+              {active && <div style={{ fontSize:9, fontWeight:500, marginTop:2, color:'var(--primary)' }}>Selected</div>}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{
+        background:'var(--primary-light)', border:'1px solid var(--primary-mid)',
+        borderRadius:'var(--radius)', padding:'12px 14px', marginBottom:20, fontSize:12,
+        color:'var(--primary-dark)', lineHeight:1.6, display:'flex', gap:10
+      }}>
+        <Icons.calendar size={14} color="var(--primary)"/>
+        <span>Your slot is held exclusively for you. No-show within 10 min of start time = auto-released back to the pool.</span>
+      </div>
+      <button disabled={selectedSlot===null} onClick={()=>onConfirm(selectedSlot)} className="btn-hover" style={{
+        width:'100%', padding:'13px', borderRadius:'var(--radius)', border:'none',
+        background: selectedSlot!==null ? 'var(--primary)' : 'var(--border)',
+        color: selectedSlot!==null ? '#fff' : 'var(--text-muted)',
+        fontSize:14, fontWeight:600, cursor: selectedSlot!==null ? 'pointer' : 'not-allowed',
+        marginBottom:10, transition:'all 0.2s'
+      }}>Confirm reservation</button>
+      <button onClick={onClose} style={{
+        width:'100%', padding:'8px', border:'none', background:'none',
+        color:'var(--text-muted)', fontSize:13, cursor:'pointer', fontFamily:'DM Sans'
+      }}>Cancel</button>
+    </ModalBackdrop>
+  );
+}
+
+/* ═══════════════ RELEASE MODAL ═══════════════ */
+function ReleaseModal({ space, slotTime, onClose, onConfirm }) {
+  return (
+    <ModalBackdrop onClose={onClose}>
+      <h3 style={{ fontSize:17, fontWeight:700, marginBottom:4, color:'var(--text)' }}>Release your slot early?</h3>
+      <div style={{ fontSize:13, color:'var(--text-muted)', marginBottom:20 }}>{space.name} · {slotTime}</div>
+      <div style={{
+        background:'var(--amber-light)', border:'1px solid var(--amber-border)',
+        borderRadius:'var(--radius)', padding:'14px', marginBottom:20, fontSize:12,
+        color:'var(--amber-dark)', lineHeight:1.6, display:'flex', gap:10
+      }}>
+        <Icons.clock size={14} color="var(--amber-mid)"/>
+        <span>This immediately frees your slot for other students. Your reservation would auto-expire anyway — this just helps others sooner.</span>
+      </div>
+      <button onClick={onConfirm} className="btn-hover" style={{
+        width:'100%', padding:'13px', borderRadius:'var(--radius)', border:'none',
+        background:'var(--primary)', color:'#fff', fontSize:14, fontWeight:600,
+        cursor:'pointer', marginBottom:10
+      }}>Yes, release my slot</button>
+      <button onClick={onClose} style={{
+        width:'100%', padding:'8px', border:'none', background:'none',
+        color:'var(--text-muted)', fontSize:13, cursor:'pointer', fontFamily:'DM Sans'
+      }}>Keep my reservation</button>
+    </ModalBackdrop>
+  );
+}
+
+/* ═══════════════ MAIN APP ═══════════════ */
+function App() {
+  const [spaces, setSpaces] = useState(initialSpaces);
+  const [selectedId, setSelectedId] = useState(null);
+  const [activeNav, setActiveNav] = useState('Map');
+  const [filters, setFilters] = useState({ type:'all', noise:'any', amenities:[] });
+  const [activeReservation, setActiveReservation] = useState(null);
+  const [modal, setModal] = useState(null);
+  const [favorites, setFavorites] = useState([0, 3]); // seed some favorites
+  const [search, setSearch] = useState('');
+  const [toasts, setToasts] = useState([]);
+  const [hoveredId, setHoveredId] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const toastId = useRef(0);
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+
+  const addToast = useCallback((msg, type='success') => {
+    const id = ++toastId.current;
+    setToasts(t => [...t, { id, msg, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3000);
+  }, []);
+
+  const toggleFavorite = useCallback((id) => {
+    setFavorites(f => {
+      if (f.includes(id)) {
+        addToast('Removed from favorites', 'info');
+        return f.filter(x=>x!==id);
+      }
+      addToast('Added to favorites', 'success');
+      return [...f, id];
+    });
+  }, [addToast]);
+
+  const selectedSpace = spaces.find(s => s.id === selectedId) || null;
+
+  const handleSelect = useCallback((id) => {
+    setSelectedId(id);
+    if (activeNav !== 'Map') setActiveNav('Map');
+  }, [activeNav]);
+
+  const handleReport = useCallback((level) => {
+    setSpaces(prev => prev.map(s => {
+      if (s.id !== selectedId) return s;
+      let newOcc;
+      if (level === 'empty') newOcc = 0.05 + Math.random() * 0.10;
+      else if (level === 'moderate') newOcc = 0.50 + Math.random() * 0.10;
+      else newOcc = 0.76 + Math.random() * 0.12;
+      return { ...s, occ: Math.min(newOcc, 0.99) };
+    }));
+    setModal(null);
+    addToast('Occupancy report submitted — thanks!', 'success');
+  }, [selectedId, addToast]);
+
+  const handleReserve = useCallback((slotIndex) => {
+    setSpaces(prev => prev.map(s => {
+      if (s.id !== selectedId) return s;
+      return { ...s, takenSlots: [...s.takenSlots, slotIndex] };
+    }));
+    setActiveReservation({ spaceId: selectedId, slotIndex });
+    setModal(null);
+    const sp = spaces.find(s=>s.id===selectedId);
+    addToast(`Reserved ${sp ? sp.slots[slotIndex] : ''} — see you there!`, 'success');
+  }, [selectedId, spaces, addToast]);
+
+  const handleRelease = useCallback(() => {
+    if (!activeReservation) return;
+    setSpaces(prev => prev.map(s => {
+      if (s.id !== activeReservation.spaceId) return s;
+      return { ...s, takenSlots: s.takenSlots.filter(i => i !== activeReservation.slotIndex) };
+    }));
+    setActiveReservation(null);
+    setModal(null);
+    addToast('Slot released — available for other students now', 'info');
+  }, [activeReservation, addToast]);
+
+  const bookingCount = activeReservation ? 1 : 0;
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
+      <Topbar activeNav={activeNav} setActiveNav={setActiveNav} search={search} setSearch={setSearch} bookingCount={bookingCount}/>
+
+      {activeNav === 'Map' && (
+        <div style={{ display:'flex', flex:1, overflow:'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
+          {/* Sidebar */}
+          {!isMobile && (
+            <Sidebar spaces={spaces} filters={filters} setFilters={setFilters}
+              selectedId={selectedId} onSelect={handleSelect}
+              activeReservation={activeReservation} favorites={favorites} toggleFavorite={toggleFavorite} search={search}/>
+          )}
+
+          {/* Map area */}
+          <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
+            {/* Mobile filter bar */}
+            {isMobile && (
+              <div style={{
+                padding:'8px 12px', background:'var(--surface)', borderBottom:'1px solid var(--border-light)',
+                display:'flex', gap:5, overflowX:'auto', flexShrink:0
+              }}>
+                {[['all','All'],['free','Free'],['reservable','Bookable']].map(([v,l]) => (
+                  <FilterChip key={v} label={l} active={filters.type===v} onClick={()=>setFilters(f=>({...f,type:v}))}/>
+                ))}
+                <div style={{ width:1, background:'var(--border)', flexShrink:0, margin:'0 2px' }}/>
+                {[['any','Any'],['quiet','Quiet'],['collab','Collab']].map(([v,l]) => (
+                  <FilterChip key={v} label={l} active={filters.noise===v} onClick={()=>setFilters(f=>({...f,noise:v}))}/>
+                ))}
+              </div>
+            )}
+
+            {/* Map */}
+            <div style={{ flex:1, minHeight: isMobile ? 220 : 280 }}>
+              <CampusMap spaces={spaces} selectedId={selectedId} onSelect={handleSelect}
+                activeReservation={activeReservation} filters={filters} search={search}
+                hoveredId={hoveredId} setHoveredId={setHoveredId}/>
+            </div>
+
+            {/* Mobile: horizontal space scroll */}
+            {isMobile && (
+              <div style={{
+                display:'flex', gap:6, padding:'8px 10px', overflowX:'auto', flexShrink:0,
+                background:'#fff', borderTop:'1px solid var(--border-light)'
+              }}>
+                {spaces.filter(s => {
+                  if (filters.type !== 'all' && s.type !== filters.type) return false;
+                  if (filters.noise !== 'any' && s.noise !== filters.noise) return false;
+                  if (search && !s.name.toLowerCase().includes(search.toLowerCase())) return false;
+                  return true;
+                }).map(s => {
+                  const isActive = selectedId === s.id;
+                  return (
+                    <div key={s.id} onClick={()=>handleSelect(s.id)} style={{
+                      minWidth:150, padding:'10px 12px', borderRadius:'var(--radius-card)',
+                      background: isActive ? 'var(--primary-light)' : '#fff',
+                      border: isActive ? '2px solid var(--primary)' : '1px solid var(--border-light)',
+                      cursor:'pointer', flexShrink:0
+                    }}>
+                      <div style={{ fontSize:11, fontWeight:600, marginBottom:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.name}</div>
+                      <div style={{ fontSize:10, color:'var(--text-muted)' }}>
+                        {s.type==='free' ? `${pct(s.occ)}% full` : `${s.slots.length - s.takenSlots.length} slots`}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Detail panel — right side on desktop, bottom on mobile */}
+          {!isMobile ? (
+            <div style={{ width: selectedId !== null ? 340 : 0, transition:'width 0.3s ease', overflow:'hidden',
+              borderLeft: selectedId !== null ? '1px solid var(--border)' : 'none', flexShrink:0 }}>
+              {selectedId !== null && (
+                <DetailPanel space={selectedSpace} activeReservation={activeReservation}
+                  onReport={()=>setModal('report')} onReserve={()=>setModal('reserve')}
+                  onRelease={()=>setModal('release')} onClose={()=>setSelectedId(null)}/>
+              )}
+            </div>
+          ) : (
+            selectedId !== null && (
+              <div style={{ maxHeight:'42vh', overflowY:'auto', borderTop:'1px solid var(--border)', flexShrink:0 }}>
+                <DetailPanel space={selectedSpace} activeReservation={activeReservation}
+                  onReport={()=>setModal('report')} onReserve={()=>setModal('reserve')}
+                  onRelease={()=>setModal('release')} onClose={()=>setSelectedId(null)}/>
+              </div>
+            )
+          )}
+
+          {/* Empty state placeholder when nothing selected on desktop */}
+          {!isMobile && selectedId === null && (
+            <div style={{ width:0, overflow:'hidden' }}/>
+          )}
+        </div>
+      )}
+
+      {activeNav === 'Favorites' && (
+        <FavoritesView spaces={spaces} favorites={favorites} toggleFavorite={toggleFavorite}
+          onSelect={handleSelect} activeReservation={activeReservation}/>
+      )}
+
+      {activeNav === 'My Bookings' && (
+        <MyBookingsView spaces={spaces} activeReservation={activeReservation}
+          onRelease={()=>setModal('release')} onSelect={handleSelect}/>
+      )}
+
+      {/* Modals */}
+      <AnimatePresence>
+        {modal==='report' && selectedSpace && <ReportModal space={selectedSpace} onClose={()=>setModal(null)} onSubmit={handleReport}/>}
+        {modal==='reserve' && selectedSpace && <ReserveModal space={selectedSpace} onClose={()=>setModal(null)} onConfirm={handleReserve}/>}
+        {modal==='release' && selectedSpace && activeReservation && (
+          <ReleaseModal space={selectedSpace} slotTime={selectedSpace.slots[activeReservation.slotIndex]}
+            onClose={()=>setModal(null)} onConfirm={handleRelease}/>
+        )}
+      </AnimatePresence>
+
+      {/* Toasts */}
+      <ToastContainer toasts={toasts}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
