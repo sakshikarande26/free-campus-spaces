@@ -1,16 +1,23 @@
 import { Routes, Route } from 'react-router-dom'
-import MapPage from './pages/MapPage'
+import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
+import MapPage from './pages/MapPage'
 import AdminPage from './pages/AdminPage'
 
-function App() {
+export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<MapPage />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/admin" element={<AdminPage />} />
+      <Route path="/" element={
+        <ProtectedRoute>
+          <MapPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin" element={
+        <ProtectedRoute requireAdmin={true}>
+          <AdminPage />
+        </ProtectedRoute>
+      } />
     </Routes>
   )
 }
-
-export default App
