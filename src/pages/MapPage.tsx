@@ -14,6 +14,9 @@ type TypeFilter = 'all' | 'free' | 'reservable'
 type NoiseFilter = 'any' | 'quiet' | 'collaborative'
 type AmenityFilter = 'outlets' | 'whiteboard' | 'printer'
 
+// Sentinel value meaning "no building filter applied"
+const ALL_BUILDINGS = ''
+
 const UMASS_CENTER = { longitude: -72.5301, latitude: 42.3868, zoom: 15 }
 
 const MAP_STYLE: StyleSpecification = {
@@ -35,9 +38,11 @@ export default function MapPage() {
   const { checkIns } = useCheckIns()
 
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [noiseFilter, setNoiseFilter] = useState<NoiseFilter>('any')
   const [amenityFilters, setAmenityFilters] = useState<AmenityFilter[]>([])
+  const [buildingFilter, setBuildingFilter] = useState<string>(ALL_BUILDINGS)
 
   function toggleAmenity(a: AmenityFilter) {
     setAmenityFilters((prev) =>
@@ -45,7 +50,35 @@ export default function MapPage() {
     )
   }
 
+  function clearAllFilters() {
+    setSearchQuery('')
+    setTypeFilter('all')
+    setNoiseFilter('any')
+    setAmenityFilters([])
+    setBuildingFilter(ALL_BUILDINGS)
+  }
+
+  // Derive sorted unique building names from the full spaces list
+  const buildings = useMemo(() => {
+    const seen = new Set<string>()
+    for (const s of spaces) {
+      if (s.building) seen.add(s.building)
+    }
+    return Array.from(seen).sort()
+  }, [spaces])
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (searchQuery.trim()) count++
+    if (typeFilter !== 'all') count++
+    if (noiseFilter !== 'any') count++
+    if (amenityFilters.length > 0) count++
+    if (buildingFilter !== ALL_BUILDINGS) count++
+    return count
+  }, [searchQuery, typeFilter, noiseFilter, amenityFilters, buildingFilter])
+
   const filteredSpaces = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
     return spaces.filter((s) => {
       if (typeFilter !== 'all' && s.type !== typeFilter) return false
       if (noiseFilter !== 'any' && s.noise_level !== noiseFilter) return false
@@ -53,9 +86,15 @@ export default function MapPage() {
         const has = amenityFilters.every((a) => s.amenities?.includes(a))
         if (!has) return false
       }
+      if (buildingFilter !== ALL_BUILDINGS && s.building !== buildingFilter) return false
+      if (q) {
+        const matchesName = s.name.toLowerCase().includes(q)
+        const matchesBuilding = s.building?.toLowerCase().includes(q) ?? false
+        if (!matchesName && !matchesBuilding) return false
+      }
       return true
     })
-  }, [spaces, typeFilter, noiseFilter, amenityFilters])
+  }, [spaces, typeFilter, noiseFilter, amenityFilters, buildingFilter, searchQuery])
 
   const selectedSpace: StudySpace | null =
     spaces.find((s) => s.id === selectedSpaceId) ?? null
@@ -78,6 +117,8 @@ export default function MapPage() {
         <div className="flex-1 max-w-md mx-auto">
           <input
             type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search spaces, buildings..."
             className="w-full bg-white/15 placeholder-white/70 text-white text-sm rounded-md px-3 py-2 outline-none focus:bg-white/25 transition-colors"
           />
@@ -118,11 +159,41 @@ export default function MapPage() {
               <Chip active={amenityFilters.includes('whiteboard')} onClick={() => toggleAmenity('whiteboard')}>Whiteboard</Chip>
               <Chip active={amenityFilters.includes('printer')} onClick={() => toggleAmenity('printer')}>Printer</Chip>
             </FilterRow>
+
+            <FilterRow label="Building">
+              <select
+                value={buildingFilter}
+                onChange={(e) => setBuildingFilter(e.target.value)}
+                className="w-full text-[11px] font-medium rounded-md px-2 py-1.5 border border-gray-300 bg-white text-gray-700 focus:outline-none focus:border-[#881c1c] transition-colors"
+              >
+                <option value={ALL_BUILDINGS}>All buildings</option>
+                {buildings.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </FilterRow>
+
+            {activeFilterCount > 0 && (
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[11px] text-gray-500">
+                  <span className="font-semibold text-[#881c1c]">{activeFilterCount}</span> filter{activeFilterCount !== 1 ? 's' : ''} active
+                </span>
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="text-[11px] text-[#881c1c] font-medium hover:underline"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="px-4 py-4">
             <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500 mb-3">
-              Study spaces near you
+              {activeFilterCount > 0
+                ? `${filteredSpaces.length} of ${spaces.length} spaces`
+                : 'Study spaces near you'}
             </div>
             {loading && (
               <div className="text-xs text-gray-500">Loading spaces…</div>
