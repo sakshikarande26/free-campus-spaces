@@ -16,7 +16,11 @@ import {
   Loader2,
   History,
   Sparkles,
+  IdCard,
+  User as UserIcon,
+  Hash,
 } from 'lucide-react'
+import type { User } from '../types/database'
 import { useAuth } from '../hooks/useAuth'
 import { useSpaces } from '../hooks/useSpaces'
 import { useReservations } from '../hooks/useReservations'
@@ -39,19 +43,31 @@ export default function ReservationsPage() {
   const navigate = useNavigate()
 
   const preselectedSpaceId = searchParams.get('space')
+  const preselectedDate = searchParams.get('date') ?? ''
+  const preselectedStart = searchParams.get('start') ?? ''
+  const preselectedDurationParam = Number(searchParams.get('duration') ?? '')
+  const preselectedDuration =
+    Number.isFinite(preselectedDurationParam) && preselectedDurationParam >= 1 && preselectedDurationParam <= 4
+      ? preselectedDurationParam
+      : 1
+
   const reservableSpaces = useMemo(
     () => spaces.filter((s) => s.type === 'reservable'),
     [spaces]
   )
 
   const [spaceId, setSpaceId] = useState(preselectedSpaceId ?? '')
-  const [date, setDate] = useState('')
-  const [startTime, setStartTime] = useState('')
-  const [durationHours, setDurationHours] = useState(1)
+  const [date, setDate] = useState(preselectedDate)
+  const [startTime, setStartTime] = useState(preselectedStart)
+  const [durationHours, setDurationHours] = useState(preselectedDuration)
   const [headcount, setHeadcount] = useState(1)
   const [reason, setReason] = useState<Reservation['reason_category']>('study')
   const [submitting, setSubmitting] = useState(false)
-  const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; msg: string } | null>(null)
+  const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; msg: string } | null>(
+    preselectedDate && preselectedStart
+      ? { kind: 'success', msg: 'Picked the next available slot — review and confirm.' }
+      : null,
+  )
 
   const upcoming = reservations.filter((r) => r.status === 'active')
   const history = reservations.filter((r) => r.status !== 'active')
@@ -73,6 +89,8 @@ export default function ReservationsPage() {
       reasonCategory: reason,
     })
     setSubmitting(false)
+    // The createReservation result also returns the new row; we don't need it
+    // here because useReservations re-fetches via realtime + manual refetch.
 
     if (error) {
       setFeedback({ kind: 'error', msg: error })
@@ -315,18 +333,20 @@ export default function ReservationsPage() {
               </div>
             )}
             <div className="space-y-2.5">
-              {upcoming.map((reservation) => (
-                <ReservationCard
-                  key={reservation.id}
-                  reservation={reservation}
-                  spaceName={spaces.find((s) => s.id === reservation.space_id)?.name ?? 'Unknown space'}
-                  spaceLocation={(() => {
-                    const sp = spaces.find((s) => s.id === reservation.space_id)
-                    return [sp?.building, sp?.floor].filter(Boolean).join(' · ')
-                  })()}
-                  onCancel={() => handleCancel(reservation.id)}
-                />
-              ))}
+              {upcoming.map((reservation) => {
+                const sp = spaces.find((s) => s.id === reservation.space_id)
+                return (
+                  <ReservationCard
+                    key={reservation.id}
+                    reservation={reservation}
+                    spaceName={sp?.name ?? 'Unknown space'}
+                    spaceLocation={[sp?.building, sp?.floor].filter(Boolean).join(' · ')}
+                    spaceHours={sp?.hours ?? null}
+                    user={user}
+                    onCancel={() => handleCancel(reservation.id)}
+                  />
+                )
+              })}
             </div>
           </div>
 
@@ -400,76 +420,179 @@ function Field({ label, icon, children }: { label: string; icon?: React.ReactNod
   )
 }
 
+function deriveDisplayName(user: User | null): string {
+  if (!user) return 'Guest'
+  if (user.full_name) return user.full_name
+  // Best-effort derivation from the email handle: "skarande" → "S. Karande"
+  const handle = user.email.split('@')[0]
+  if (!handle) return user.email
+  // If "first.last" format, capitalize each segment
+  if (handle.includes('.')) {
+    return handle
+      .split('.')
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+      .join(' ')
+  }
+  // Otherwise just capitalize the handle
+  return handle.charAt(0).toUpperCase() + handle.slice(1)
+}
+
+function deriveSpireId(user: User | null): string {
+  if (!user) return '—'
+  if (user.spire_id) return user.spire_id
+  // Fallback: use first 8 chars of the user's UUID, uppercased, as a stable
+  // pseudo-identifier so the receipt always has *something* to show.
+  return user.id.replace(/-/g, '').slice(0, 8).toUpperCase()
+}
+
 function ReservationCard({
   reservation,
   spaceName,
   spaceLocation,
+  spaceHours,
+  user,
   onCancel,
 }: {
   reservation: Reservation
   spaceName: string
   spaceLocation: string
+  spaceHours: { open: string; close: string } | null
+  user: User | null
   onCancel: () => void
 }) {
   const start = new Date(reservation.slot_start)
   const end = new Date(reservation.slot_end)
   const durationMs = end.getTime() - start.getTime()
   const durationHrs = Math.round(durationMs / 3600000)
+  const confirmationCode = reservation.id.replace(/-/g, '').slice(0, 8).toUpperCase()
+  const displayName = deriveDisplayName(user)
+  const spireId = deriveSpireId(user)
+  const userInitial = displayName.charAt(0).toUpperCase()
+  const isStartingSoon = start.getTime() - Date.now() < 60 * 60 * 1000 && start.getTime() > Date.now()
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/40 p-3.5 hover:border-[#881c1c]/30 hover:shadow-sm transition-all">
-      <div className="flex items-start gap-3">
-        {/* Date block */}
-        <div className="w-12 h-14 rounded-xl bg-[#fdf3f3] text-[#881c1c] flex flex-col items-center justify-center shrink-0 border border-[#f3d9d9]">
-          <div className="text-[9px] font-bold uppercase leading-none">
-            {start.toLocaleDateString([], { month: 'short' })}
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-[#881c1c]/30 transition-all overflow-hidden">
+      {/* Top accent bar */}
+      <div className="h-1 bg-gradient-to-r from-[#5f0f15] via-[#881c1c] to-[#a32d2d]" />
+
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Date block */}
+          <div className="w-14 h-16 rounded-xl bg-[#fdf3f3] text-[#881c1c] flex flex-col items-center justify-center shrink-0 border border-[#f3d9d9]">
+            <div className="text-[9px] font-bold uppercase leading-none">
+              {start.toLocaleDateString([], { month: 'short' })}
+            </div>
+            <div className="text-[20px] font-bold leading-none mt-1">
+              {start.getDate()}
+            </div>
+            <div className="text-[8.5px] uppercase font-semibold leading-none mt-1 opacity-70">
+              {start.toLocaleDateString([], { weekday: 'short' })}
+            </div>
           </div>
-          <div className="text-[18px] font-bold leading-none mt-1">
-            {start.getDate()}
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="font-display text-[15px] font-bold text-slate-900 truncate">{spaceName}</div>
+                  {isStartingSoon && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded-full px-1.5 py-0.5">
+                      Soon
+                    </span>
+                  )}
+                </div>
+                {spaceLocation && (
+                  <div className="text-[11.5px] text-slate-500 mt-0.5 flex items-center gap-1">
+                    <MapPin size={10} strokeWidth={2.4} />
+                    {spaceLocation}
+                    {spaceHours && (
+                      <>
+                        <span className="text-slate-300">·</span>
+                        <span>Open {spaceHours.open}–{spaceHours.close}</span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={onCancel}
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white text-rose-700 px-2 py-1 text-[10.5px] font-semibold hover:bg-rose-50 transition-colors shrink-0"
+              >
+                <X size={11} strokeWidth={2.6} />
+                Cancel
+              </button>
+            </div>
+
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-[11px] rounded-md bg-slate-100 text-slate-700 px-1.5 py-0.5 font-medium">
+                <Clock size={10} strokeWidth={2.4} />
+                {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {' – '}
+                {end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] rounded-md bg-slate-100 text-slate-700 px-1.5 py-0.5 font-medium">
+                {durationHrs}h
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] rounded-md bg-slate-100 text-slate-700 px-1.5 py-0.5 font-medium">
+                <Users size={10} strokeWidth={2.4} />
+                {reservation.headcount ?? 1}
+              </span>
+              {reservation.reason_category && (
+                <span className="inline-flex items-center gap-1 text-[11px] rounded-md bg-[#fdf3f3] text-[#881c1c] px-1.5 py-0.5 capitalize font-medium">
+                  <Tag size={10} strokeWidth={2.4} />
+                  {reservation.reason_category.replace('_', ' ')}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="font-display text-[14.5px] font-bold text-slate-900 truncate">{spaceName}</div>
-              {spaceLocation && (
-                <div className="text-[11.5px] text-slate-500 mt-0.5 flex items-center gap-1">
-                  <MapPin size={10} strokeWidth={2.4} />
-                  {spaceLocation}
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white text-rose-700 px-2 py-1 text-[10.5px] font-semibold hover:bg-rose-50 transition-colors shrink-0"
-            >
-              <X size={11} strokeWidth={2.6} />
-              Cancel
-            </button>
-          </div>
+        {/* Receipt details — perforated divider + holder info + confirmation code */}
+        <div className="relative mt-3.5 pt-3.5 border-t border-dashed border-slate-200">
+          <div className="absolute -left-2 -top-2 w-4 h-4 rounded-full bg-slate-50 border border-slate-200" />
+          <div className="absolute -right-2 -top-2 w-4 h-4 rounded-full bg-slate-50 border border-slate-200" />
 
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 text-[11px] rounded-md bg-slate-100 text-slate-700 px-1.5 py-0.5">
-              <Clock size={10} strokeWidth={2.4} />
-              {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              {' – '}
-              {end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-            <span className="inline-flex items-center gap-1 text-[11px] rounded-md bg-slate-100 text-slate-700 px-1.5 py-0.5">
-              {durationHrs}h
-            </span>
-            <span className="inline-flex items-center gap-1 text-[11px] rounded-md bg-slate-100 text-slate-700 px-1.5 py-0.5">
-              <Users size={10} strokeWidth={2.4} />
-              {reservation.headcount ?? 1}
-            </span>
-            {reservation.reason_category && (
-              <span className="inline-flex items-center gap-1 text-[11px] rounded-md bg-[#fdf3f3] text-[#881c1c] px-1.5 py-0.5 capitalize">
-                <Tag size={10} strokeWidth={2.4} />
-                {reservation.reason_category.replace('_', ' ')}
-              </span>
-            )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#881c1c] to-[#5f0f15] text-white text-[11px] font-bold flex items-center justify-center shadow-sm">
+                {userInitial}
+              </div>
+              <div className="min-w-0">
+                <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 flex items-center gap-1">
+                  <UserIcon size={9} strokeWidth={2.6} />
+                  Reservation holder
+                </div>
+                <div className="text-[12.5px] font-semibold text-slate-900 truncate leading-tight mt-0.5">
+                  {displayName}
+                </div>
+                <div className="text-[10.5px] text-slate-500 truncate leading-tight">
+                  {user?.email ?? '—'}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 sm:justify-end">
+              <div className="text-right min-w-0">
+                <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 flex items-center gap-1 justify-end">
+                  <IdCard size={9} strokeWidth={2.6} />
+                  SPIRE ID
+                </div>
+                <div className="font-mono text-[12px] font-semibold text-slate-900 leading-tight mt-0.5 tracking-wider">
+                  {spireId}
+                </div>
+              </div>
+              <div className="w-px h-8 bg-slate-200" />
+              <div className="min-w-0">
+                <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 flex items-center gap-1">
+                  <Hash size={9} strokeWidth={2.6} />
+                  Confirmation
+                </div>
+                <div className="font-mono text-[12px] font-semibold text-[#881c1c] leading-tight mt-0.5 tracking-wider">
+                  {confirmationCode}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

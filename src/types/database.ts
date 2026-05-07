@@ -2,7 +2,9 @@ export interface User {
   id: string
   email: string
   role: 'student' | 'admin'
-  university: string | null
+  university?: string | null
+  full_name?: string | null
+  spire_id?: string | null
   created_at: string
 }
 

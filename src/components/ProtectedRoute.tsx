@@ -19,11 +19,11 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
 
   if (requireAdmin && user.role !== 'admin') {
-    return <Navigate to="/" replace />
+    return <Navigate to="/map" replace />
   }
 
   return <>{children}</>

@@ -4,6 +4,10 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 
+if (!localStorage.getItem('selected_university')) {
+  localStorage.setItem('selected_university', 'umass_amherst')
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

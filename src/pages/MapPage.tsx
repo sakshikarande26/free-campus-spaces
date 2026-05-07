@@ -19,17 +19,20 @@ import {
   Clock,
   Activity,
   Armchair,
+  Star,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useSpaces } from '../hooks/useSpaces'
 import { useCheckIns } from '../hooks/useCheckIns'
 import { useReservations } from '../hooks/useReservations'
+import { useFavorites } from '../hooks/useFavorites'
 import { getOccupancyInfo, getPinColor } from '../lib/occupancy'
 import SpaceCard from '../components/SpaceCard'
 import DetailPanel from '../components/DetailPanel'
 import ReportOccupancyModal from '../components/ReportOccupancyModal'
 import FlagWrongDataModal from '../components/FlagWrongDataModal'
 import { manualCheckOut } from '../lib/checkins'
+import { findNextAvailableSlot } from '../lib/reservations'
 import type { StudySpace } from '../types/database'
 
 type TypeFilter = 'all' | 'free' | 'reservable'
@@ -74,9 +77,10 @@ const MAP_STYLE: StyleSpecification = {
 export default function MapPage() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
-  const { spaces, loading } = useSpaces()
+  const { spaces, loading, error: spacesError } = useSpaces()
   const { checkIns } = useCheckIns()
   const { reservations } = useReservations(user?.id)
+  const { isFavorite, toggleFavorite } = useFavorites(user?.id)
 
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null)
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
@@ -87,8 +91,11 @@ export default function MapPage() {
   const [openNowFilter, setOpenNowFilter] = useState<boolean>(false)
   const [occupancyFilter, setOccupancyFilter] = useState<OccupancyFilter>('any')
   const [minCapacityFilter, setMinCapacityFilter] = useState<number>(0)
+  const [favoritesOnly, setFavoritesOnly] = useState<boolean>(false)
   const [showReportModal, setShowReportModal] = useState(false)
   const [showFlagModal, setShowFlagModal] = useState(false)
+  const [quickBookLoading, setQuickBookLoading] = useState(false)
+  const [quickBookError, setQuickBookError] = useState<string | null>(null)
 
   const buildings = useMemo(() => {
     const set = new Set<string>()
@@ -106,7 +113,8 @@ export default function MapPage() {
     buildingFilter !== 'all' ||
     openNowFilter ||
     occupancyFilter !== 'any' ||
-    minCapacityFilter !== 0
+    minCapacityFilter !== 0 ||
+    favoritesOnly
 
   function resetAllFilters() {
     setTypeFilter('all')
@@ -117,6 +125,7 @@ export default function MapPage() {
     setOpenNowFilter(false)
     setOccupancyFilter('any')
     setMinCapacityFilter(0)
+    setFavoritesOnly(false)
   }
 
   function toggleAmenity(a: AmenityFilter) {
@@ -134,6 +143,7 @@ export default function MapPage() {
 
   const filteredSpaces = useMemo(() => {
     return spaces.filter((s) => {
+      if (favoritesOnly && !isFavorite(s.id)) return false
       if (typeFilter !== 'all' && s.type !== typeFilter) return false
       if (noiseFilter !== 'any' && s.noise_level !== noiseFilter) return false
       if (amenityFilters.length > 0) {
@@ -159,6 +169,7 @@ export default function MapPage() {
   }, [
     spaces, typeFilter, noiseFilter, amenityFilters, searchQuery,
     buildingFilter, openNowFilter, occupancyFilter, minCapacityFilter, checkIns,
+    favoritesOnly, isFavorite,
   ])
 
   const selectedSpace: StudySpace | null =
@@ -179,7 +190,37 @@ export default function MapPage() {
     await manualCheckOut(user.id)
   }
 
+  async function handleQuickBook() {
+    if (!selectedSpace) return
+    setQuickBookError(null)
+    setQuickBookLoading(true)
+    const { slotStart, slotEnd, error } = await findNextAvailableSlot(selectedSpace.id, 1)
+    setQuickBookLoading(false)
+    if (error || !slotStart || !slotEnd) {
+      setQuickBookError(error ?? 'No open slot found.')
+      return
+    }
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const dateStr = `${slotStart.getFullYear()}-${pad(slotStart.getMonth() + 1)}-${pad(slotStart.getDate())}`
+    const startStr = `${pad(slotStart.getHours())}:${pad(slotStart.getMinutes())}`
+    const dur = Math.round((slotEnd.getTime() - slotStart.getTime()) / 3_600_000)
+    navigate(
+      `/reservations?space=${selectedSpace.id}&date=${dateStr}&start=${startStr}&duration=${dur}`,
+    )
+  }
+
   const userInitial = user?.email?.[0]?.toUpperCase() ?? 'U'
+
+  const selectedUniversityId =
+    (typeof window !== 'undefined' && window.localStorage.getItem('selected_university')) || 'umass_amherst'
+  const universityLabel =
+    {
+      umass_amherst: 'UMass Amherst',
+      amherst_college: 'Amherst College',
+      hampshire_college: 'Hampshire College',
+      mount_holyoke_college: 'Mount Holyoke College',
+      smith_college: 'Smith College',
+    }[selectedUniversityId] ?? 'UMass Amherst'
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 flex flex-col">
@@ -193,9 +234,13 @@ export default function MapPage() {
             <MapPin size={17} strokeWidth={2.5} />
           </div>
           <div>
-            <div className="text-[9px] uppercase tracking-[0.18em] text-slate-500 font-semibold">UMass Amherst</div>
+            <div className="text-[9px] uppercase tracking-[0.18em] text-slate-500 font-semibold">{universityLabel}</div>
             <span className="font-display font-bold tracking-tight text-[15px] text-slate-900">Study Spaces</span>
           </div>
+          <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] text-slate-500 ml-1 pl-3 border-l border-slate-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            {universityLabel}
+          </span>
         </div>
 
         <div className="flex-1 max-w-md mx-auto relative">
@@ -260,6 +305,47 @@ export default function MapPage() {
         <aside className="bg-white border-r border-slate-200 overflow-y-auto flex flex-col">
           {/* Filters */}
           <div className="px-4 py-4 border-b border-slate-100 space-y-3.5">
+            <div className="flex items-center justify-between -mb-1">
+              <div className="flex items-center gap-1.5">
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-700">Filters</div>
+                {anyFilterActive && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#881c1c] text-white text-[9.5px] font-bold">
+                    {[
+                      typeFilter !== 'all',
+                      noiseFilter !== 'any',
+                      amenityFilters.length > 0,
+                      searchQuery.trim().length > 0,
+                      buildingFilter !== 'all',
+                      openNowFilter,
+                      occupancyFilter !== 'any',
+                      minCapacityFilter !== 0,
+                      favoritesOnly,
+                    ].filter(Boolean).length}
+                  </span>
+                )}
+              </div>
+              {anyFilterActive && (
+                <button
+                  type="button"
+                  onClick={resetAllFilters}
+                  className="text-[10.5px] text-slate-500 hover:text-[#881c1c] transition-colors font-medium"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+            {user && (
+              <FilterRow label="Saved" icon={<Star size={10} strokeWidth={2.4} />}>
+                <Chip
+                  active={favoritesOnly}
+                  onClick={() => setFavoritesOnly((v) => !v)}
+                  icon={<Star size={11} strokeWidth={2.4} fill={favoritesOnly ? 'currentColor' : 'none'} />}
+                >
+                  Favorites only
+                </Chip>
+              </FilterRow>
+            )}
+
             <FilterRow label="Type">
               <Chip active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>All</Chip>
               <Chip active={typeFilter === 'free'} onClick={() => setTypeFilter('free')}>Free</Chip>
@@ -314,15 +400,6 @@ export default function MapPage() {
               <Chip active={minCapacityFilter === 20} onClick={() => setMinCapacityFilter(20)}>20+</Chip>
             </FilterRow>
 
-            {anyFilterActive && (
-              <button
-                type="button"
-                onClick={resetAllFilters}
-                className="text-[11px] text-slate-500 hover:text-[#881c1c] transition-colors"
-              >
-                Clear all filters
-              </button>
-            )}
           </div>
 
           {/* My Reservations */}
@@ -401,7 +478,13 @@ export default function MapPage() {
             {loading && (
               <div className="text-xs text-slate-500 px-1 py-2">Loading spaces…</div>
             )}
-            {!loading && filteredSpaces.length === 0 && (
+            {!loading && spacesError && spaces.length === 0 && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[11px] text-rose-700">
+                <div className="font-semibold mb-0.5">Couldn't load spaces</div>
+                <div className="opacity-80 break-words">{spacesError}</div>
+              </div>
+            )}
+            {!loading && !spacesError && filteredSpaces.length === 0 && spaces.length > 0 && (
               <div className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center">
                 <div className="text-xs text-slate-500">No spaces match these filters.</div>
                 <button
@@ -411,6 +494,14 @@ export default function MapPage() {
                 >
                   Clear filters
                 </button>
+              </div>
+            )}
+            {!loading && !spacesError && spaces.length === 0 && (
+              <div className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center">
+                <div className="text-xs text-slate-500">No study spaces found.</div>
+                <div className="text-[10.5px] text-slate-400 mt-1">
+                  Check that your Supabase <code>study_spaces</code> table has rows with <code>is_active = true</code>.
+                </div>
               </div>
             )}
             <div>
@@ -425,7 +516,9 @@ export default function MapPage() {
                     hasActiveReservation={reservations.some(
                       (r) => r.space_id === space.id && r.status === 'active'
                     )}
+                    isFavorite={isFavorite(space.id)}
                     onClick={() => setSelectedSpaceId(space.id)}
+                    onToggleFavorite={user ? () => toggleFavorite(space.id) : undefined}
                   />
                 )
               })}
@@ -512,6 +605,8 @@ export default function MapPage() {
               space={selectedSpace}
               occupancyInfo={selectedOccupancy}
               hasActiveCheckIn={hasActiveCheckInHere}
+              isFavorite={selectedSpace ? isFavorite(selectedSpace.id) : false}
+              quickBookLoading={quickBookLoading}
               onReportOccupancy={() => setShowReportModal(true)}
               onReserve={() => {
                 if (selectedSpace) {
@@ -520,9 +615,18 @@ export default function MapPage() {
                   navigate('/reservations')
                 }
               }}
+              onQuickBook={selectedSpace?.type === 'reservable' ? handleQuickBook : undefined}
+              onToggleFavorite={
+                user && selectedSpace ? () => toggleFavorite(selectedSpace.id) : undefined
+              }
               onFlagWrong={() => setShowFlagModal(true)}
               onCheckOut={handleCheckOut}
             />
+            {quickBookError && (
+              <div className="absolute bottom-3 right-4 z-20 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11.5px] font-medium px-3 py-2 shadow-sm max-w-xs">
+                {quickBookError}
+              </div>
+            )}
           </div>
         </div>
       </div>

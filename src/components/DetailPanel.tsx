@@ -1,4 +1,4 @@
-import { MapPin, Users, Clock, Volume2, VolumeX, CalendarCheck, AlertCircle, Flag, LogOut, Sparkles } from 'lucide-react'
+import { MapPin, Users, Clock, Volume2, VolumeX, CalendarCheck, AlertCircle, Flag, LogOut, Sparkles, Zap, Loader2, Star } from 'lucide-react'
 import type { StudySpace } from '../types/database'
 import type { OccupancyInfo } from '../lib/occupancy'
 import SpacePhotoViewer from './SpacePhotoViewer'
@@ -7,8 +7,12 @@ interface DetailPanelProps {
   space: StudySpace | null
   occupancyInfo: OccupancyInfo | null
   hasActiveCheckIn?: boolean
+  isFavorite?: boolean
+  quickBookLoading?: boolean
   onReportOccupancy: () => void
   onReserve: () => void
+  onQuickBook?: () => void
+  onToggleFavorite?: () => void
   onFlagWrong: () => void
   onCheckOut: () => void
 }
@@ -24,20 +28,57 @@ export default function DetailPanel({
   space,
   occupancyInfo,
   hasActiveCheckIn = false,
+  isFavorite = false,
+  quickBookLoading = false,
   onReportOccupancy,
   onReserve,
+  onQuickBook,
+  onToggleFavorite,
   onFlagWrong,
   onCheckOut,
 }: DetailPanelProps) {
   if (!space || !occupancyInfo) {
     return (
-      <div className="h-full border-t border-slate-200 bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-full bg-slate-100 mx-auto flex items-center justify-center mb-3">
-            <MapPin size={20} className="text-slate-400" />
+      <div className="h-full border-t border-slate-200 bg-gradient-to-br from-white via-slate-50/30 to-white flex items-center justify-center px-6">
+        <div className="max-w-2xl w-full grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] items-center gap-6">
+          {/* Left: title */}
+          <div className="flex items-center gap-3 sm:border-r sm:border-slate-200 sm:pr-6">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#fdf3f3] to-white border border-[#f3d9d9] text-[#881c1c] flex items-center justify-center shrink-0">
+              <MapPin size={20} strokeWidth={2.2} />
+            </div>
+            <div>
+              <div className="font-display font-bold text-[15px] text-slate-900 leading-tight">Select a space</div>
+              <div className="text-[11.5px] text-slate-500 mt-0.5">Tap a pin or card to see details</div>
+            </div>
           </div>
-          <div className="text-sm font-medium text-slate-700">Select a space</div>
-          <div className="text-xs text-slate-500 mt-0.5">Tap a pin or card to see details</div>
+
+          {/* Center: legend chips */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-slate-600">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Nearly empty
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500" /> Moderate
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500" /> Very busy
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#881c1c]" /> Reservable
+            </span>
+          </div>
+
+          {/* Right: tips */}
+          <div className="hidden sm:flex flex-col gap-1.5 text-[11px] text-slate-500 sm:border-l sm:border-slate-200 sm:pl-6">
+            <div className="inline-flex items-center gap-1.5">
+              <Sparkles size={11} strokeWidth={2.4} className="text-[#881c1c]" />
+              <span>Free spaces use crowd-sourced reports</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5">
+              <CalendarCheck size={11} strokeWidth={2.4} className="text-[#881c1c]" />
+              <span>Reservable rooms can be booked in seconds</span>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -57,6 +98,25 @@ export default function DetailPanel({
           <h2 className="font-display text-[20px] font-bold text-slate-900 leading-tight">
             {space.name}
           </h2>
+          {onToggleFavorite && (
+            <button
+              type="button"
+              onClick={onToggleFavorite}
+              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              className={`inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors ${
+                isFavorite
+                  ? 'text-amber-500 hover:bg-amber-50'
+                  : 'text-slate-300 hover:text-amber-500 hover:bg-slate-50'
+              }`}
+            >
+              <Star
+                size={16}
+                strokeWidth={2.2}
+                fill={isFavorite ? 'currentColor' : 'none'}
+              />
+            </button>
+          )}
           {isReservable ? (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#881c1c] bg-[#fdf3f3] rounded-full px-2 py-0.5 border border-[#f3d9d9]">
               <CalendarCheck size={10} strokeWidth={2.5} />
@@ -133,6 +193,27 @@ export default function DetailPanel({
             </>
           )}
         </button>
+
+        {isReservable && onQuickBook && (
+          <button
+            type="button"
+            onClick={onQuickBook}
+            disabled={quickBookLoading}
+            className="w-full bg-white text-[#881c1c] border border-[#881c1c]/40 font-semibold rounded-xl py-2.5 text-sm hover:bg-[#fdf3f3] disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          >
+            {quickBookLoading ? (
+              <>
+                <Loader2 size={14} strokeWidth={2.4} className="animate-spin" />
+                Finding next slot…
+              </>
+            ) : (
+              <>
+                <Zap size={14} strokeWidth={2.4} />
+                Book next available
+              </>
+            )}
+          </button>
+        )}
 
         {!isReservable && hasActiveCheckIn && (
           <button
