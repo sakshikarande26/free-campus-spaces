@@ -13,7 +13,7 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-3">
         <div className="w-6 h-6 rounded-full border-2 border-[#881c1c] border-t-transparent animate-spin" />
-        <div className="text-xs text-gray-500">Loading Spaces…</div>
+        <div className="text-xs text-gray-500">Loading Study Spaces…</div>
       </div>
     )
   }

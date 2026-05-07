@@ -2,6 +2,7 @@ export interface User {
   id: string
   email: string
   role: 'student' | 'admin'
+  university: string | null
   created_at: string
 }
 
@@ -21,6 +22,8 @@ export interface StudySpace {
   lng: number | null
   max_duration_hours: number | null
   booking_horizon_hours: number | null
+  photos: string[]
+  university: string
   created_at: string
 }
 

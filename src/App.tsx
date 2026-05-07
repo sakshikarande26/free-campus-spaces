@@ -1,8 +1,9 @@
-import { Routes, Route } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import MapPage from './pages/MapPage'
 import AdminPage from './pages/AdminPage'
+import ReservationsPage from './pages/ReservationsPage'
 
 export default function App() {
   return (
@@ -18,6 +19,12 @@ export default function App() {
           <AdminPage />
         </ProtectedRoute>
       } />
+      <Route path="/reservations" element={
+        <ProtectedRoute>
+          <ReservationsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

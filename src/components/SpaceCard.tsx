@@ -1,3 +1,4 @@
+import { MapPin, Users, CalendarCheck, Volume2, VolumeX } from 'lucide-react'
 import type { StudySpace } from '../types/database'
 import type { OccupancyInfo } from '../lib/occupancy'
 
@@ -10,17 +11,24 @@ interface SpaceCardProps {
 }
 
 const barColors: Record<OccupancyInfo['color'], string> = {
-  green: 'bg-emerald-600',
+  green: 'bg-emerald-500',
   amber: 'bg-amber-500',
-  red: 'bg-rose-600',
-  gray: 'bg-gray-300',
+  red: 'bg-rose-500',
+  gray: 'bg-slate-300',
 }
 
-const pillColors: Record<OccupancyInfo['color'], string> = {
+const dotColors: Record<OccupancyInfo['color'], string> = {
+  green: 'bg-emerald-500',
+  amber: 'bg-amber-500',
+  red: 'bg-rose-500',
+  gray: 'bg-slate-300',
+}
+
+const labelColors: Record<OccupancyInfo['color'], string> = {
   green: 'text-emerald-700',
   amber: 'text-amber-700',
   red: 'text-rose-700',
-  gray: 'text-gray-500',
+  gray: 'text-slate-500',
 }
 
 export default function SpaceCard({
@@ -37,47 +45,75 @@ export default function SpaceCard({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left bg-white px-3 py-3 relative transition-colors border-b border-gray-100 hover:bg-gray-50 ${
+      className={`group w-full text-left bg-white rounded-xl px-3.5 py-3 mb-2 relative transition-all border ${
         isSelected
-          ? 'border-l-[3px] border-l-[#881c1c] bg-[#fff8f8] pl-[calc(0.75rem-3px)]'
-          : ''
+          ? 'border-[#881c1c] shadow-[0_4px_12px_rgba(136,28,28,0.12)] ring-1 ring-[#881c1c]/10'
+          : 'border-slate-200/70 hover:border-slate-300 hover:shadow-sm'
       }`}
     >
       {hasActiveReservation && (
-        <span className="absolute top-2 right-2 text-[9px] font-semibold uppercase tracking-wide bg-[#881c1c] text-white rounded-full px-2 py-0.5">
-          Reserved
+        <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider bg-[#881c1c] text-white rounded-full px-2 py-0.5 shadow-sm">
+          <CalendarCheck size={10} strokeWidth={2.5} />
+          Booked
         </span>
       )}
 
-      <div className="text-[13px] font-semibold text-gray-900 leading-tight">
-        {space.name}
-      </div>
-      {location && (
-        <div className="text-[11px] text-gray-500 mt-0.5">{location}</div>
-      )}
-
-      <div className="flex items-center gap-2 mt-2 flex-wrap">
-        <span
-          className={`text-[10px] font-semibold uppercase tracking-wide ${
-            isReservable ? 'text-[#881c1c]' : 'text-emerald-700'
+      <div className="flex items-start gap-2.5">
+        <div
+          className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+            isReservable
+              ? 'bg-[#fdf3f3] text-[#881c1c] group-hover:bg-[#f7e0e0]'
+              : 'bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100'
           }`}
         >
-          {isReservable ? 'Reservable' : 'Free space'}
-        </span>
-        <span className="text-[10px] text-gray-300">·</span>
-        {isReservable ? (
-          <span className="text-[11px] text-gray-500">Book a slot</span>
-        ) : (
-          <span className={`text-[11px] ${pillColors[occupancyInfo.color]}`}>
-            {occupancyInfo.label}
+          {isReservable ? <CalendarCheck size={16} strokeWidth={2.2} /> : <MapPin size={16} strokeWidth={2.2} />}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="text-[13.5px] font-semibold text-slate-900 leading-tight truncate pr-12">
+            {space.name}
+          </div>
+          {location && (
+            <div className="text-[11px] text-slate-500 mt-0.5 truncate flex items-center gap-1">
+              {location}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-2.5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {isReservable ? (
+            <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#881c1c] bg-[#fdf3f3] rounded-md px-1.5 py-0.5">
+              Reservable
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${dotColors[occupancyInfo.color]}`} />
+              <span className={`text-[11px] font-medium ${labelColors[occupancyInfo.color]}`}>
+                {occupancyInfo.label}
+              </span>
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 text-[10.5px] text-slate-400 shrink-0">
+          <span className="inline-flex items-center gap-0.5">
+            <Users size={10} strokeWidth={2.2} />
+            {space.capacity}
           </span>
-        )}
+          {space.noise_level && (
+            <span className="inline-flex items-center" title={space.noise_level}>
+              {space.noise_level === 'quiet' ? <VolumeX size={10} strokeWidth={2.2} /> : <Volume2 size={10} strokeWidth={2.2} />}
+            </span>
+          )}
+        </div>
       </div>
 
       {!isReservable && occupancyInfo.percentage !== null && (
-        <div className="mt-2 h-[3px] rounded-full bg-gray-200 overflow-hidden">
+        <div className="mt-2.5 h-1 rounded-full bg-slate-100 overflow-hidden">
           <div
-            className={`h-full ${barColors[occupancyInfo.color]}`}
+            className={`h-full ${barColors[occupancyInfo.color]} transition-all duration-500`}
             style={{ width: `${occupancyInfo.percentage}%` }}
           />
         </div>
