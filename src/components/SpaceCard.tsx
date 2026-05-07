@@ -1,4 +1,4 @@
-import { MapPin, Users, CalendarCheck, Volume2, VolumeX } from 'lucide-react'
+import { MapPin, Users, CalendarCheck, Volume2, VolumeX, Star } from 'lucide-react'
 import type { StudySpace } from '../types/database'
 import type { OccupancyInfo } from '../lib/occupancy'
 
@@ -7,7 +7,9 @@ interface SpaceCardProps {
   occupancyInfo: OccupancyInfo
   isSelected: boolean
   hasActiveReservation: boolean
+  isFavorite?: boolean
   onClick: () => void
+  onToggleFavorite?: () => void
 }
 
 const barColors: Record<OccupancyInfo['color'], string> = {
@@ -36,27 +38,62 @@ export default function SpaceCard({
   occupancyInfo,
   isSelected,
   hasActiveReservation,
+  isFavorite = false,
   onClick,
+  onToggleFavorite,
 }: SpaceCardProps) {
   const isReservable = space.type === 'reservable'
   const location = [space.building, space.floor].filter(Boolean).join(' · ')
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onClick()
+    }
+  }
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`group w-full text-left bg-white rounded-xl px-3.5 py-3 mb-2 relative transition-all border ${
+      onKeyDown={handleKeyDown}
+      className={`group w-full text-left bg-white rounded-xl px-3.5 py-3 mb-2 relative transition-all border cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881c1c]/30 ${
         isSelected
           ? 'border-[#881c1c] shadow-[0_4px_12px_rgba(136,28,28,0.12)] ring-1 ring-[#881c1c]/10'
           : 'border-slate-200/70 hover:border-slate-300 hover:shadow-sm'
       }`}
     >
-      {hasActiveReservation && (
-        <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider bg-[#881c1c] text-white rounded-full px-2 py-0.5 shadow-sm">
-          <CalendarCheck size={10} strokeWidth={2.5} />
-          Booked
-        </span>
-      )}
+      <div className="absolute top-2 right-2 flex items-center gap-1.5">
+        {hasActiveReservation && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider bg-[#881c1c] text-white rounded-full px-2 py-0.5 shadow-sm">
+            <CalendarCheck size={10} strokeWidth={2.5} />
+            Booked
+          </span>
+        )}
+        {onToggleFavorite && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleFavorite()
+            }}
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors ${
+              isFavorite
+                ? 'text-amber-500 hover:bg-amber-50'
+                : 'text-slate-300 hover:text-amber-500 hover:bg-slate-50'
+            }`}
+          >
+            <Star
+              size={14}
+              strokeWidth={2.2}
+              fill={isFavorite ? 'currentColor' : 'none'}
+            />
+          </button>
+        )}
+      </div>
 
       <div className="flex items-start gap-2.5">
         <div
@@ -70,7 +107,7 @@ export default function SpaceCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="text-[13.5px] font-semibold text-slate-900 leading-tight truncate pr-12">
+          <div className="text-[13.5px] font-semibold text-slate-900 leading-tight truncate pr-20">
             {space.name}
           </div>
           {location && (
@@ -118,6 +155,6 @@ export default function SpaceCard({
           />
         </div>
       )}
-    </button>
+    </div>
   )
 }

@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Mail, Lock, MapPin, Users, Clock, ArrowRight, AlertCircle, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const university = (location.state as { university?: string } | null)?.university ?? 'umass_amherst'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -34,8 +36,10 @@ export default function LoginPage() {
       return
     }
 
+    localStorage.setItem('selected_university', university)
+
     setSubmitting(false)
-    navigate('/')
+    navigate('/map')
   }
 
   return (
