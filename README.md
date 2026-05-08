@@ -1,8 +1,14 @@
-# free campus spaces
+# <div align="center">free campus spaces</div>
+
+<div align="center">
 
 **Campus-native study space visibility for UMass Amherst** — real-time occupancy for walk-in areas and booking flows for reservable rooms, in one UMass-owned platform.
 
 CS 520 | Spring 2026 | Team 06 | University of Massachusetts Amherst
+
+©
+
+</div>
 
 ---
 
@@ -142,10 +148,10 @@ git remote set-url origin https://github.com/sakshikarande26/free-campus-spaces.
 
 ## Getting started
 
-The repo is on a **clean slate** while the app is re-scaffolded on the **Supabase + Vite** stack above. Setup steps (`pnpm`/`npm` install, Supabase project link, env vars, migrations) will be added once the initial project layout is committed.
+The repo is on a **clean slate** while the app is re-scaffolded on the **Supabase + Vite** stack above. Setup steps (`pnpm`/`npm` install, Supabase project link, env vars, migrations) will be add[...]
 
 ---
 
 ## Privacy (intent)
 
-Spaces should show **aggregate** occupancy and booking state — **not** a public feed of which individual checked in where. Account deletion and data export paths should align with campus policy as the product hardens.
+Spaces should show **aggregate** occupancy and booking state — **not** a public feed of which individual checked in where. Account deletion and data export paths should align with campus policy[...]
