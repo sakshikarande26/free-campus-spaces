@@ -78,7 +78,7 @@ export default function LoginPage() {
           </div>
 
           <div className="text-xs text-white/60">
-            © {new Date().getFullYear()} UMass Amherst Study Spaces
+            © {new Date().getFullYear()} UMass Amherst Study Spaces · Copyright Sakshi Karand 2026
           </div>
         </div>
       </div>
@@ -118,7 +118,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@umass.edu"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-10 py-3 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#881c1c]/30 focus:border-[#881c1c] transition-all"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-10 py-3 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#881c1c]/30 focus:border-[#881c1c] transition"
                   />
                 </div>
               </div>
@@ -137,7 +137,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-10 py-3 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#881c1c]/30 focus:border-[#881c1c] transition-all"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-10 py-3 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#881c1c]/30 focus:border-[#881c1c] transition"
                   />
                 </div>
               </div>
@@ -152,7 +152,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="group w-full bg-[#881c1c] text-white font-semibold rounded-xl py-3 text-sm hover:bg-[#6e1616] disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                className="group w-full bg-[#881c1c] text-white font-semibold rounded-xl py-3 text-sm hover:bg-[#6e1616] disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-sm"
               >
                 {submitting ? (
                   <>
