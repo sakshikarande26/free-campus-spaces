@@ -2,7 +2,8 @@
 
 <div align="center">
 
-**Campus-native study space visibility for UMass Amherst** — real-time occupancy for walk-in areas and booking flows for reservable rooms, in one UMass-owned platform.
+Find your perfect study spot,
+before you leave your room.
 
 CS 520 | Spring 2026 | Team 06 | University of Massachusetts Amherst
 
@@ -108,7 +109,7 @@ Everything in Spaces follows one rule: **free common spaces** and **reservable r
 | **Report** | Issue reports from users; `open` \| `resolved` |
 | **Announcement** | Space-scoped message with `start_at` / `end_at` |
 
-**Invariant:** at most **one active check-in per user** — enforced in the database (e.g. **partial unique index**).
+**Invariant:** at most **one active check-in per user** �� enforced in the database (e.g. **partial unique index**).
 
 ---
 
