@@ -7,8 +7,6 @@ before you leave your room.
 
 CS 520 | Spring 2026 | Team 06 | University of Massachusetts Amherst
 
-©
-
 </div>
 
 ---
