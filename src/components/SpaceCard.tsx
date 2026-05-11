@@ -140,7 +140,14 @@ export default function SpaceCard({
             {space.capacity}
           </span>
           {space.noise_level && (
-            <span className="inline-flex items-center" title={space.noise_level}>
+            <span
+              className="inline-flex items-center"
+              title={
+                space.noise_level === 'quiet'
+                  ? 'Quiet study space'
+                  : 'Collaborative study space'
+          }
+      >
               {space.noise_level === 'quiet' ? <VolumeX size={10} strokeWidth={2.2} /> : <Volume2 size={10} strokeWidth={2.2} />}
             </span>
           )}
