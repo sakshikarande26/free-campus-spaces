@@ -129,6 +129,7 @@ export default function SpaceCard({
               <span className={`w-1.5 h-1.5 rounded-full ${dotColors[occupancyInfo.color]}`} />
               <span className={`text-[11px] font-medium ${labelColors[occupancyInfo.color]}`}>
                 {occupancyInfo.label}
+                {occupancyInfo.percentage !== null && ` · ${occupancyInfo.percentage}%`}
               </span>
             </span>
           )}
