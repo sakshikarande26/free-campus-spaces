@@ -115,6 +115,14 @@ export default function MapPage() {
     occupancyFilter !== 'any' ||
     minCapacityFilter !== 0 ||
     favoritesOnly
+  
+  const activeFilters = [
+    favoritesOnly && 'Favorites',
+    noiseFilter === 'quiet' && 'Quiet',
+    openNowFilter && 'Open Now',
+    typeFilter === 'free' && 'Free',
+    typeFilter === 'reservable' && 'Reservable',
+  ].filter(Boolean)
 
   function resetAllFilters() {
     setTypeFilter('all')
@@ -474,6 +482,11 @@ export default function MapPage() {
               <span className="text-[10px] font-semibold text-slate-400">
                 {filteredSpaces.length}
               </span>
+              {activeFilters.length > 0 && (
+                <div className="text-[10px] text-slate-400 mt-1 text-right">
+                  Showing: {activeFilters.join(' · ')}
+                </div>
+              )}
             </div>
             {loading && (
               <div className="text-xs text-slate-500 px-1 py-2">Loading spaces…</div>
