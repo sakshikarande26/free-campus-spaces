@@ -58,10 +58,10 @@ export default function SpaceCard({
       tabIndex={0}
       onClick={onClick}
       onKeyDown={handleKeyDown}
-      className={`group w-full text-left bg-white rounded-xl px-3.5 py-3 mb-2 relative transition-all border cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881c1c]/30 ${
+      className={`group w-full text-left bg-white rounded-xl px-3.5 py-3 mb-2 relative transition-all duration-300 ease-out border cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#881c1c]/30 ${
         isSelected
           ? 'border-[#881c1c] shadow-[0_4px_12px_rgba(136,28,28,0.12)] ring-1 ring-[#881c1c]/10'
-          : 'border-slate-200/70 hover:border-slate-300 hover:shadow-sm'
+          : 'border-slate-200/70 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1'
       }`}
     >
       <div className="absolute top-2 right-2 flex items-center gap-1.5">
@@ -150,7 +150,7 @@ export default function SpaceCard({
       {!isReservable && occupancyInfo.percentage !== null && (
         <div className="mt-2.5 h-1 rounded-full bg-slate-100 overflow-hidden">
           <div
-            className={`h-full ${barColors[occupancyInfo.color]} transition-all duration-500`}
+            className={`h-full ${barColors[occupancyInfo.color]} transition-all duration-700 ease-out`}
             style={{ width: `${occupancyInfo.percentage}%` }}
           />
         </div>
