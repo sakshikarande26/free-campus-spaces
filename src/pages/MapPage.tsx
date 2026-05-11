@@ -485,17 +485,29 @@ export default function MapPage() {
               </div>
             )}
             {!loading && !spacesError && filteredSpaces.length === 0 && spaces.length > 0 && (
-              <div className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center">
-                <div className="text-xs text-slate-500">No spaces match these filters.</div>
-                <button
-                  type="button"
-                  onClick={resetAllFilters}
-                  className="mt-2 text-[11px] font-semibold text-[#881c1c] hover:underline"
+            <div className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center">
+              {favoritesOnly ? (
+                <>
+                  <Star size={18} className="mx-auto mb-2 text-slate-300" strokeWidth={2.2} />
+                  <div className="text-xs font-semibold text-slate-600">No favorite spaces yet.</div>
+                   <div className="text-[10.5px] text-slate-400 mt-1">
+                    Tap the star on a study space to save it here.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xs text-slate-500">No spaces match these filters.</div>
+                  <button
+                    type="button"
+                    onClick={resetAllFilters}
+                    className="mt-2 text-[11px] font-semibold text-[#881c1c] hover:underline"
                 >
-                  Clear filters
+                    Clear filters
                 </button>
-              </div>
+              </>
             )}
+          </div>
+        )}
             {!loading && !spacesError && spaces.length === 0 && (
               <div className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center">
                 <div className="text-xs text-slate-500">No study spaces found.</div>
