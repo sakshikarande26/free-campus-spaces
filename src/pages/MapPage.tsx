@@ -39,6 +39,7 @@ type TypeFilter = 'all' | 'free' | 'reservable'
 type NoiseFilter = 'any' | 'quiet' | 'collaborative'
 type AmenityFilter = 'outlets' | 'whiteboard' | 'printer'
 type OccupancyFilter = 'any' | 'not_busy' | 'nearly_empty'
+type SortOption = 'default' | 'alphabetical' | 'capacity-high' | 'capacity-low'
 
 function isOpenNow(hours: { open: string; close: string } | null | undefined): boolean {
   if (!hours || !hours.open || !hours.close) return false
@@ -92,6 +93,7 @@ export default function MapPage() {
   const [occupancyFilter, setOccupancyFilter] = useState<OccupancyFilter>('any')
   const [minCapacityFilter, setMinCapacityFilter] = useState<number>(0)
   const [favoritesOnly, setFavoritesOnly] = useState<boolean>(false)
+  const [sortOption, setSortOption] = useState<SortOption>('default')
   const [showReportModal, setShowReportModal] = useState(false)
   const [showFlagModal, setShowFlagModal] = useState(false)
   const [quickBookLoading, setQuickBookLoading] = useState(false)
@@ -150,7 +152,7 @@ export default function MapPage() {
   )
 
   const filteredSpaces = useMemo(() => {
-    return spaces.filter((s) => {
+    const filtered = spaces.filter((s) => {
       if (favoritesOnly && !isFavorite(s.id)) return false
       if (typeFilter !== 'all' && s.type !== typeFilter) return false
       if (noiseFilter !== 'any' && s.noise_level !== noiseFilter) return false
@@ -166,7 +168,6 @@ export default function MapPage() {
       if (buildingFilter !== 'all' && s.building !== buildingFilter) return false
       if (openNowFilter && !isOpenNow(s.hours)) return false
       if (minCapacityFilter > 0 && (s.capacity ?? 0) < minCapacityFilter) return false
-      // Occupancy filter only applies to free spaces — reservable always shown
       if (occupancyFilter !== 'any' && s.type === 'free') {
         const info = getOccupancyInfo(s, checkIns)
         if (occupancyFilter === 'nearly_empty' && info.color !== 'green') return false
@@ -174,10 +175,17 @@ export default function MapPage() {
       }
       return true
     })
-  }, [
+
+    return [...filtered].sort((a, b) => {
+      if (sortOption === 'alphabetical') return a.name.localeCompare(b.name)
+      if (sortOption === 'capacity-high') return (b.capacity ?? 0) - (a.capacity ?? 0)
+      if (sortOption === 'capacity-low') return (a.capacity ?? 0) - (b.capacity ?? 0)
+      return 0
+    })
+  } , [
     spaces, typeFilter, noiseFilter, amenityFilters, searchQuery,
     buildingFilter, openNowFilter, occupancyFilter, minCapacityFilter, checkIns,
-    favoritesOnly, isFavorite,
+    favoritesOnly, isFavorite, sortOption,
   ])
 
   const selectedSpace: StudySpace | null =
@@ -487,6 +495,18 @@ export default function MapPage() {
                   Showing: {activeFilters.join(' · ')}
                 </div>
               )}
+            </div>
+            <div className="px-1 mb-2">
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value as SortOption)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#881c1c]/20"
+              >
+                <option value="default">Sort: Default</option>
+                <option value="alphabetical">Sort: Alphabetical</option>
+                <option value="capacity-high">Sort: Most seats</option>
+                <option value="capacity-low">Sort: Fewest seats</option>
+              </select>
             </div>
             {loading && (
               <div className="text-xs text-slate-500 px-1 py-2">Loading spaces…</div>
